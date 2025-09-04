@@ -1,0 +1,15 @@
+---
+version: "2"
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  settings:
+    gci:
+      no-inline-comments: true
+      sections:
+        - default
+        - standard
+        - prefix(github.com/ab0utbla-k/cloudwatch-alarm-enricher)
+    gofumpt:
+      module-path: github.com/ab0utbla-k/cloudwatch-alarm-enricher

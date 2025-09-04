@@ -22,4 +22,3 @@ CloudWatch Alarm → EventBridge Rule → Lambda Function → SNS Topic → Emai
                                CloudWatch Metrics API
                               (enrichment queries)
 ```
-
