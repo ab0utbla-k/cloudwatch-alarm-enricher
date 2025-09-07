@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/awsapi"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -20,7 +21,7 @@ import (
 )
 
 type LambdaHandler struct {
-	cwClient    *cloudwatch.Client
+	cwClient    awsapi.CloudWatchAPI
 	snsClient   *sns.Client
 	snsTopicArn string
 	logger      *slog.Logger
@@ -42,7 +43,7 @@ func NewLambdaHandler() (*LambdaHandler, error) {
 	}
 
 	return &LambdaHandler{
-		cwClient:    cloudwatch.NewFromConfig(cfg),
+		cwClient:    awsapi.NewClient(cloudwatch.NewFromConfig(cfg)),
 		snsClient:   sns.NewFromConfig(cfg),
 		snsTopicArn: snsTopicArn,
 		logger:      logger,
