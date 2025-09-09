@@ -25,11 +25,11 @@ type ViolatingMetric struct {
 }
 
 type MetricAnalyzer struct {
-	cw     client.CloudWatch
+	cw     client.CloudWatchAPI
 	logger *slog.Logger
 }
 
-func NewMetricAnalyzer(cw client.CloudWatch, logger *slog.Logger) *MetricAnalyzer {
+func NewMetricAnalyzer(cw client.CloudWatchAPI, logger *slog.Logger) *MetricAnalyzer {
 	return &MetricAnalyzer{
 		cw:     cw,
 		logger: logger,
