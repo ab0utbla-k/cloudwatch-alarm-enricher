@@ -39,6 +39,6 @@ lint: ## Run golangci-lint
 .PHONY: fmt
 fmt: ## Ensure consistent code style
 	@go mod tidy
-	@go fmt ./...
+	@$(GOLANGCI_LINT) fmt
 	@$(GOLANGCI_LINT) run --fix
 	@$(OK) Ensured consistent code style
