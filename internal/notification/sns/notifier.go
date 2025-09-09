@@ -5,23 +5,26 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
+
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/client"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
 )
 
 type Notifier struct {
-	client   *sns.Client
-	topicArn string
+	client client.SNSAPI
+	config *config.Config
 }
 
-func NewNotifier(client *sns.Client, topicArn string) *Notifier {
+func New(client client.SNSAPI, config *config.Config) *Notifier {
 	return &Notifier{
-		client:   client,
-		topicArn: topicArn,
+		client: client,
+		config: config,
 	}
 }
 
 func (n *Notifier) Send(ctx context.Context, subject, message string) error {
 	input := &sns.PublishInput{
-		TopicArn: aws.String(n.topicArn),
+		TopicArn: aws.String(n.config.SNSTopicARN),
 		Subject:  aws.String(subject),
 		Message:  aws.String(message),
 	}

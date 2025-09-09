@@ -1,4 +1,4 @@
-package handlers
+package handler
 
 import (
 	"context"
@@ -11,16 +11,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/notifiers"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/notification"
 )
 
 type EventHandler struct {
 	enricher alarm.Enricher
-	notifier notifiers.Provider
+	notifier notification.Sender
 	logger   *slog.Logger
 }
 
-func NewEventHandler(enricher alarm.Enricher, notifier notifiers.Provider, logger *slog.Logger) *EventHandler {
+func NewEventHandler(enricher alarm.Enricher, notifier notification.Sender, logger *slog.Logger) *EventHandler {
 	return &EventHandler{
 		enricher: enricher,
 		notifier: notifier,
@@ -34,12 +34,12 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 		return err
 	}
 
-	msg := h.BuildNotificationMessaged(enriched)
+	msg := h.BuildNotificationMessage(enriched)
 	err = h.notifier.Send(ctx, aws.ToString(enriched.Alarm.AlarmName), msg)
 	return err
 }
 
-func (h *EventHandler) BuildNotificationMessaged(event *alarm.EnrichedEvent) string {
+func (h *EventHandler) BuildNotificationMessage(event *alarm.EnrichedEvent) string {
 	var msg strings.Builder
 	a := event.Alarm
 	vms := event.ViolatingMetrics

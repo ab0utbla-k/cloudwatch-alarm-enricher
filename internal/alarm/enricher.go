@@ -30,13 +30,13 @@ type EnrichedEvent struct {
 }
 
 type MetricEnricher struct {
-	cw       client.CloudWatch
+	cw       client.CloudWatchAPI
 	analyzer metrics.Analyzer
 	logger   *slog.Logger
 }
 
 func NewMetricEnricher(
-	cw client.CloudWatch,
+	cw client.CloudWatchAPI,
 	analyzer metrics.Analyzer,
 	logger *slog.Logger,
 ) *MetricEnricher {
