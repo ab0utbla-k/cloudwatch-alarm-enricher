@@ -2,13 +2,11 @@ package alarm
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
@@ -18,7 +16,7 @@ import (
 )
 
 type Enricher interface {
-	Enrich(ctx context.Context, event events.CloudWatchEvent) (*EnrichedEvent, error)
+	Enrich(ctx context.Context, alarmName string) (*EnrichedEvent, error)
 }
 
 // EnrichedEvent represents the processed alarm event
@@ -47,26 +45,13 @@ func NewMetricEnricher(
 	}
 }
 
-func (e *MetricEnricher) Enrich(ctx context.Context, event events.CloudWatchEvent) (*EnrichedEvent, error) {
-	e.logger.Info("processing alarm event",
-		"source", event.Source,
-		"detailType", event.DetailType,
-	)
-
-	var eventData struct {
-		AlarmName string `json:"alarmName"`
-	}
-
-	if err := json.Unmarshal(event.Detail, &eventData); err != nil {
-		return nil, err
-	}
-
-	if eventData.AlarmName == "" {
+func (e *MetricEnricher) Enrich(ctx context.Context, alarmName string) (*EnrichedEvent, error) {
+	if alarmName == "" {
 		return nil, errors.New("alarm name not found in event")
 	}
 
 	output, err := e.cw.DescribeAlarms(ctx, &cloudwatch.DescribeAlarmsInput{
-		AlarmNames: []string{eventData.AlarmName},
+		AlarmNames: []string{alarmName},
 		MaxRecords: aws.Int32(1),
 	})
 	if err != nil {
@@ -74,7 +59,7 @@ func (e *MetricEnricher) Enrich(ctx context.Context, event events.CloudWatchEven
 	}
 
 	if len(output.MetricAlarms) == 0 {
-		return nil, fmt.Errorf("alarm not found: %s", eventData.AlarmName)
+		return nil, fmt.Errorf("alarm not found: %s", alarmName)
 	}
 
 	alarm := &output.MetricAlarms[0]

@@ -49,8 +49,8 @@ func (a *MetricAnalyzer) FindViolatingMetrics(ctx context.Context, alarm *types.
 	metricName := aws.ToString(alarm.MetricName)
 
 	a.logger.Debug("searching for enriched metrics",
-		slog.String("namespace", metricNamespace),
-		slog.String("metricName", metricName))
+		"namespace", metricNamespace,
+		"metricName", metricName)
 
 	metrics, err := a.findEnrichedMetrics(ctx, metricNamespace, metricName, dimensionFilters)
 	if err != nil {
@@ -58,9 +58,9 @@ func (a *MetricAnalyzer) FindViolatingMetrics(ctx context.Context, alarm *types.
 	}
 
 	if len(metrics) == 0 {
-		a.logger.Info("no enriched metrics found",
-			slog.String("namespace", metricNamespace),
-			slog.String("metricName", metricName))
+		a.logger.Debug("no enriched metrics found",
+			"namespace", metricNamespace,
+			"metricName", metricName)
 		return nil, nil
 	}
 
