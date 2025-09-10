@@ -1,24 +1,44 @@
 # CloudWatch Alarm Enricher
 
-A Go-based AWS Lambda function that enhances CloudWatch alarm notifications with detailed metric analysis and context. This solution processes CloudWatch alarm state changes and enriches notifications with granular information about which specific resources are violating alarm thresholds.
-
-## Overview
-
-When CloudWatch alarms trigger, they often provide limited context about which specific resources are causing the threshold violations. This Lambda function intercepts alarm state change events and enriches the notifications with detailed metric breakdowns, helping operators quickly identify root causes.
+AWS Lambda function that enriches CloudWatch alarm notifications with detailed metric analysis and resource-specific context.
 
 ## Features
 
-- **Universal Alarm Support**: Works with any CloudWatch alarm across AWS services (EKS, EC2, RDS, etc.)
-- **Metric Enrichment**: Identifies specific resources violating thresholds by querying CloudWatch metrics
-- **Flexible Notifications**: Sends enriched alerts via Amazon SNS with detailed violation context
-- **Event-Driven Architecture**: Automatically triggered by CloudWatch alarm state changes via EventBridge
-- **Scalable Structure**: Modular Go architecture designed for easy extension and maintenance
+- **Metric Enrichment**: Identifies specific resources violating alarm thresholds
+- **Universal Support**: Works with all CloudWatch alarms (EC2, EKS, RDS, etc.)
+- **Event-Driven**: Triggered by CloudWatch alarm state changes via EventBridge
+- **SNS Integration**: Sends enriched notifications via Amazon SNS
 
 ## Architecture
 
 ```
-CloudWatch Alarm → EventBridge Rule → Lambda Function → SNS Topic → Email/SMS
-                                    ↓
-                               CloudWatch Metrics API
-                              (enrichment queries)
+CloudWatch Alarm → EventBridge → Lambda → SNS → Notifications
+                                   ↓
+                             CloudWatch API
+                           (metric queries)
+```
+
+## Configuration
+
+Required environment variables:
+- `AWS_REGION`: AWS region
+- `SNS_TOPIC_ARN`: SNS topic for notifications
+
+## Deployment
+
+```bash
+# Build
+go build -o main cmd/lambda/main.go
+
+# Deploy using your preferred method (SAM, CDK, Terraform, etc.)
+```
+
+## Development
+
+```bash
+# Lint code
+make lint
+
+# Format code
+make fmt
 ```
