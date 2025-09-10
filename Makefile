@@ -1,8 +1,26 @@
-BREW_PREFIX := $(shell brew --prefix)
-BIN ?= $(BREW_PREFIX)/bin
+# ====================================================================================
+# Build Dependencies
 
-## Tool Binaries
-GOLANGCI_LINT ?= $(BIN)/golangci-lint
+## Binaries
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
+
+GOLANGCI_VERSION := v2.4.0
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	@test -s $(LOCALBIN)/golangci-lint && $(LOCALBIN)/golangci-lint version --format short | grep -q $(GOLANGCI_VERSION) || \
+	(echo "Installing golangci-lint $(GOLANGCI_VERSION)..." && \
+	 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_VERSION))
+
+.PHONY: clean-bin
+clean-bin: ## Remove all downloaded tools
+	@rm -rf $(LOCALBIN)
+	@$(OK) Removed local binaries
 
 # ====================================================================================
 # Colors
@@ -29,7 +47,7 @@ FAIL	= (echo ${TIME} ${RED}[FAIL]${CNone} && false)
 # ====================================================================================
 # Golang
 .PHONY: lint
-lint: ## Run golangci-lint
+lint: $(GOLANGCI_LINT) ## Run golangci-lint
 	@if ! $(GOLANGCI_LINT) run; then \
 		printf "\033[0;33mgolangci-lint failed: some checks can be fixed with \`\033[0;32mmake fmt\033[0m\033[0;33m\`\033[0m\n"; \
 		exit 1; \
@@ -37,7 +55,7 @@ lint: ## Run golangci-lint
 	@$(OK) Finished linting
 
 .PHONY: fmt
-fmt: ## Ensure consistent code style
+fmt: $(GOLANGCI_LINT) ## Ensure consistent code style
 	@go mod tidy
 	@$(GOLANGCI_LINT) fmt
 	@$(GOLANGCI_LINT) run --fix
