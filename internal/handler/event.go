@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -29,13 +30,40 @@ func NewEventHandler(enricher alarm.Enricher, notifier notification.Sender, logg
 }
 
 func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatchEvent) error {
-	enriched, err := h.enricher.Enrich(ctx, event)
-	if err != nil {
+	var eventData struct {
+		AlarmName string `json:"alarmName"`
+	}
+
+	if err := json.Unmarshal(event.Detail, &eventData); err != nil {
 		return err
 	}
 
+	h.logger.Info("alarm event received",
+		"source", event.Source,
+		"detailType", event.DetailType,
+	)
+
+	enriched, err := h.enricher.Enrich(ctx, eventData.AlarmName)
+	if err != nil {
+		h.logger.Error("failed to enrich alarm",
+			"alarm", eventData.AlarmName,
+			"error", err)
+		return err
+	}
+
+	h.logger.Info("sending notification",
+		"alarm", aws.ToString(enriched.Alarm.AlarmName),
+		"violating_count", len(enriched.ViolatingMetrics))
+
 	msg := h.BuildNotificationMessage(enriched)
+
 	err = h.notifier.Send(ctx, aws.ToString(enriched.Alarm.AlarmName), msg)
+	if err != nil {
+		h.logger.Error("failed to send notification",
+			"alarm", aws.ToString(enriched.Alarm.AlarmName),
+			"error", err)
+	}
+
 	return err
 }
 
