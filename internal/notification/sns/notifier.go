@@ -8,6 +8,7 @@ import (
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/client"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/notification"
 )
 
 type Notifier struct {
@@ -31,4 +32,8 @@ func (n *Notifier) Send(ctx context.Context, subject, message string) error {
 
 	_, err := n.client.Publish(ctx, input)
 	return err
+}
+
+func (n *Notifier) GetFormat() notification.MessageFormat {
+	return notification.FormatText
 }

@@ -3,10 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
-	"strings"
-	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -55,9 +52,16 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 		"alarm", aws.ToString(enriched.Alarm.AlarmName),
 		"violating_count", len(enriched.ViolatingMetrics))
 
-	msg := h.BuildNotificationMessage(enriched)
+	msgBuilder := getMessageBuilder(h.notifier.GetFormat())
 
-	err = h.notifier.Send(ctx, aws.ToString(enriched.Alarm.AlarmName), msg)
+	subj := msgBuilder.BuildSubject(aws.ToString(enriched.Alarm.AlarmName))
+	msg, err := msgBuilder.BuildBody(enriched)
+	if err != nil {
+		h.logger.Error("failed to build message", "error", err)
+		return err
+	}
+
+	err = h.notifier.Send(ctx, subj, msg)
 	if err != nil {
 		h.logger.Error("failed to send notification",
 			"alarm", aws.ToString(enriched.Alarm.AlarmName),
@@ -67,33 +71,11 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 	return err
 }
 
-func (h *EventHandler) BuildNotificationMessage(event *alarm.EnrichedEvent) string {
-	var msg strings.Builder
-	a := event.Alarm
-	vms := event.ViolatingMetrics
-
-	msg.WriteString(fmt.Sprintf("🚨 CloudWatch Alarm: %s\n", aws.ToString(a.AlarmName)))
-	msg.WriteString(fmt.Sprintf("State: %s\n", a.StateValue))
-	msg.WriteString(fmt.Sprintf("Reason: %s\n\n", aws.ToString(a.StateReason)))
-
-	if len(event.ViolatingMetrics) == 0 {
-		msg.WriteString("No specific services currently violating the threshold.\n")
-	} else {
-		// Add normal symbols for ops
-		msg.WriteString(fmt.Sprintf("Metrics currently violating (%s %.1f) threshold:\n",
-			a.ComparisonOperator,
-			aws.ToFloat64(a.Threshold)))
-
-		for _, vm := range vms {
-			var dims []string
-			for k, v := range vm.Dimensions {
-				dims = append(dims, fmt.Sprintf("%s=%s", k, v))
-			}
-			msg.WriteString(fmt.Sprintf("• %s, Value: %.2f\n", strings.Join(dims, ", "), vm.Value))
-		}
+func getMessageBuilder(format notification.MessageFormat) notification.MessageBuilder {
+	switch format {
+	case notification.FormatText:
+		return &notification.TextMessageBuilder{}
+	default:
+		return &notification.TextMessageBuilder{}
 	}
-
-	msg.WriteString(fmt.Sprintf("\nTimestamp: %s", time.Now().Format(time.RFC3339)))
-
-	return msg.String()
 }
