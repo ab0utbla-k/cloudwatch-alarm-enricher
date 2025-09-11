@@ -42,6 +42,18 @@ func Load() (*Config, error) {
 			return nil, err
 		}
 		cfg.SNSTopicARN = topicARN
+	case ProviderTeams:
+		webhookURL, err := env.GetRequired("TEAMS_WEBHOOK_URL", env.ParseNonEmptyString)
+		if err != nil {
+			return nil, err
+		}
+		cfg.TeamsWebhookURL = webhookURL
+	case ProviderSlack:
+		webhookURL, err := env.GetRequired("SLACK_WEBHOOK_URL", env.ParseNonEmptyString)
+		if err != nil {
+			return nil, err
+		}
+		cfg.SlackWebhookURL = webhookURL
 	default:
 		return nil, fmt.Errorf("invalid notification provider: %s", provider)
 	}
