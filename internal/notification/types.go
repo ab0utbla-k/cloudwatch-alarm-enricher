@@ -12,9 +12,8 @@ type Sender interface {
 	GetFormat() MessageFormat
 }
 
-type MessageBuilder interface {
-	BuildSubject(alarmName string) string
-	BuildBody(event *alarm.EnrichedEvent) (string, error)
+type MessageFormatter interface {
+	Format(event *alarm.EnrichedEvent) (string, error)
 }
 
 type MessageFormat string

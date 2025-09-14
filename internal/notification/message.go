@@ -20,19 +20,19 @@ const (
 	LessThanOrEqualToThreshold    comparisonSymbol = "<="
 )
 
-type TextMessageBuilder struct{}
+type TextMessageFormatter struct{}
 
-func (b *TextMessageBuilder) BuildSubject(alarmName string) string {
-	return fmt.Sprintf("CloudWatch Alarm - %s", alarmName)
-}
-
-func (b *TextMessageBuilder) BuildBody(event *alarm.EnrichedEvent) (string, error) {
+func (b *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error) {
 	a := event.Alarm
 	var msg strings.Builder
 
-	msg.WriteString(fmt.Sprintf("🚨 CloudWatch Alarm: %s\n", aws.ToString(a.AlarmName)))
-	msg.WriteString(fmt.Sprintf("State: %s\n", event.Alarm.StateValue))
-	msg.WriteString(fmt.Sprintf("Reason: %s\n\n", aws.ToString(a.StateReason)))
+	msg.WriteString("🚨 CloudWatch Alarm: ")
+	msg.WriteString(aws.ToString(a.AlarmName))
+	msg.WriteString("\nState: ")
+	msg.WriteString(string(event.Alarm.StateValue))
+	msg.WriteString("\nReason: ")
+	msg.WriteString(aws.ToString(a.StateReason))
+	msg.WriteString("\n\n")
 
 	if len(event.ViolatingMetrics) == 0 {
 		msg.WriteString("No specific services currently violating the threshold.\n")
@@ -42,26 +42,32 @@ func (b *TextMessageBuilder) BuildBody(event *alarm.EnrichedEvent) (string, erro
 			return "", err
 		}
 
-		msg.WriteString(fmt.Sprintf(
-			"Metrics currently violating (%s %.1f) threshold:\n",
+		_, err = fmt.Fprintf(&msg, "Metrics currently violating (%s %.1f) threshold:\n",
 			symbol,
-			aws.ToFloat64(event.Alarm.Threshold)))
+			aws.ToFloat64(event.Alarm.Threshold))
+		if err != nil {
+			return "", err
+		}
 
 		for _, vm := range event.ViolatingMetrics {
 			dims := make([]string, 0, len(vm.Dimensions))
 			for k, v := range vm.Dimensions {
-				dims = append(dims, fmt.Sprintf("%s=%s", k, v))
+				dims = append(dims, k+"="+v)
 			}
-			msg.WriteString(fmt.Sprintf(
-				"• %s, Value: %.2f\n",
+
+			_, err = fmt.Fprintf(&msg, "• %s, Value: %.2f\n",
 				strings.Join(dims, ", "),
-				vm.Value))
+				vm.Value)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 
-	msg.WriteString(fmt.Sprintf(
-		"\nTimestamp: %s",
-		event.Timestamp.Format(time.RFC3339)))
+	_, err := fmt.Fprintf(&msg, "\nTimestamp: %s", event.Timestamp.Format(time.RFC3339))
+	if err != nil {
+		return "", nil
+	}
 
 	return msg.String(), nil
 }
