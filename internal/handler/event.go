@@ -52,10 +52,10 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 		"alarm", aws.ToString(enriched.Alarm.AlarmName),
 		"violating_count", len(enriched.ViolatingMetrics))
 
-	msgBuilder := getMessageBuilder(h.notifier.GetFormat())
+	formatter := getMessageFormatter(h.notifier.GetFormat())
 
-	subj := msgBuilder.BuildSubject(aws.ToString(enriched.Alarm.AlarmName))
-	msg, err := msgBuilder.BuildBody(enriched)
+	subj := "CloudWatch Alarm - " + aws.ToString(enriched.Alarm.AlarmName)
+	msg, err := formatter.Format(enriched)
 	if err != nil {
 		h.logger.Error("failed to build message", "error", err)
 		return err
@@ -71,11 +71,11 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 	return err
 }
 
-func getMessageBuilder(format notification.MessageFormat) notification.MessageBuilder {
+func getMessageFormatter(format notification.MessageFormat) notification.MessageFormatter {
 	switch format {
 	case notification.FormatText:
-		return &notification.TextMessageBuilder{}
+		return &notification.TextMessageFormatter{}
 	default:
-		return &notification.TextMessageBuilder{}
+		return &notification.TextMessageFormatter{}
 	}
 }
