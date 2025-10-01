@@ -87,7 +87,7 @@ func (a *MetricAnalyzer) findEnrichedMetrics(
 		Dimensions: dimensions,
 	})
 
-	var bestMetrics []*types.Metric
+	var mostEnriched []*types.Metric
 	maxDimensions := len(dimensions)
 
 	for paginator.HasMorePages() {
@@ -99,21 +99,21 @@ func (a *MetricAnalyzer) findEnrichedMetrics(
 		for _, m := range page.Metrics {
 			dimCount := len(m.Dimensions)
 
-			if dimCount < len(dimensions) {
+			if dimCount < maxDimensions {
 				continue
 			}
 
-			// Found better enrichment level, reset collection
+			// Found richer level, reset
 			if dimCount > maxDimensions {
+				mostEnriched = []*types.Metric{&m}
 				maxDimensions = dimCount
-				bestMetrics = []*types.Metric{&m}
-			} else if dimCount == maxDimensions {
-				bestMetrics = append(bestMetrics, &m)
+			} else {
+				mostEnriched = append(mostEnriched, &m)
 			}
 		}
 	}
 
-	return bestMetrics, nil
+	return mostEnriched, nil
 }
 
 func (a *MetricAnalyzer) analyzeMetricsForViolations(
