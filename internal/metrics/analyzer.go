@@ -54,7 +54,7 @@ func (a *MetricAnalyzer) FindViolatingMetrics(ctx context.Context, alarm *types.
 
 	metrics, err := a.findEnrichedMetrics(ctx, metricNamespace, metricName, dimensionFilters)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find enriched metrics: %w", err)
+		return nil, err
 	}
 
 	if len(metrics) == 0 {
@@ -99,7 +99,7 @@ func (a *MetricAnalyzer) findEnrichedMetrics(
 		for _, m := range page.Metrics {
 			dimCount := len(m.Dimensions)
 
-			if dimCount <= len(dimensions) {
+			if dimCount < len(dimensions) {
 				continue
 			}
 

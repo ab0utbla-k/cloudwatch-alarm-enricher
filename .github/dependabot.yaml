@@ -18,12 +18,3 @@ updates:
         update-types:
           - "minor"
           - "patch"
-
-    # Labels for better organization
-    labels:
-      - "dependencies"
-      - "go"
-
-    commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
