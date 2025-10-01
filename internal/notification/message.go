@@ -22,7 +22,7 @@ const (
 
 type TextMessageFormatter struct{}
 
-func (b *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error) {
+func (f *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error) {
 	a := event.Alarm
 	var msg strings.Builder
 
@@ -50,23 +50,25 @@ func (b *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error
 		}
 
 		for _, vm := range event.ViolatingMetrics {
-			dims := make([]string, 0, len(vm.Dimensions))
+			dms := make([]string, 0, len(vm.Dimensions))
 			for k, v := range vm.Dimensions {
-				dims = append(dims, k+"="+v)
+				dms = append(dms, k+"="+v)
 			}
 
-			_, err = fmt.Fprintf(&msg, "• %s, Value: %.2f\n",
-				strings.Join(dims, ", "),
+			_, err = fmt.Fprintf(&msg, "• %s, Value: %.2f",
+				strings.Join(dms, ", "),
 				vm.Value)
 			if err != nil {
 				return "", err
 			}
+
+			msg.WriteByte('\n')
 		}
 	}
 
 	_, err := fmt.Fprintf(&msg, "\nTimestamp: %s", event.Timestamp.Format(time.RFC3339))
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return msg.String(), nil
