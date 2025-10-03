@@ -60,3 +60,31 @@ fmt: $(GOLANGCI_LINT) ## Ensure consistent code style
 	@$(GOLANGCI_LINT) fmt
 	@$(GOLANGCI_LINT) run --fix
 	@$(OK) Ensured consistent code style
+
+# ====================================================================================
+# Lambda Deployment
+
+LAMBDA_FUNCTION_NAME ?= cloudwatch-alarm-enricher
+
+.PHONY: build
+build: ## Build Lambda binary
+	@$(INFO) Building Lambda binary
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bootstrap cmd/lambda/main.go
+	@$(OK) Built Lambda binary
+
+.PHONY: zip
+zip: build ## Create Lambda deployment package
+	@$(INFO) Creating deployment package
+	@zip -q lambda.zip bootstrap
+	@$(OK) Created lambda.zip
+
+.PHONY: deploy
+deploy: zip ## Deploy Lambda function to AWS
+	@$(INFO) Deploying Lambda function
+	@aws lambda update-function-code --function-name $(LAMBDA_FUNCTION_NAME) --zip-file fileb://lambda.zip
+	@$(OK) Deployed Lambda function
+
+.PHONY: clean
+clean: ## Remove build artifacts
+	@rm -f bootstrap lambda.zip
+	@$(OK) Cleaned build artifacts
