@@ -28,7 +28,7 @@ Required environment variables:
 
 ```bash
 # Build
-go build -o main cmd/lambda/main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bootstrap ./cmd/lambda
 
 # Deploy using your preferred method (SAM, CDK, Terraform, etc.)
 ```

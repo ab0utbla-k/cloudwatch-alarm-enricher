@@ -2,6 +2,7 @@ package notification
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -49,20 +50,21 @@ func (f *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error
 			return "", err
 		}
 
-		for _, vm := range event.ViolatingMetrics {
+		for i, vm := range event.ViolatingMetrics {
 			dms := make([]string, 0, len(vm.Dimensions))
 			for k, v := range vm.Dimensions {
 				dms = append(dms, k+"="+v)
 			}
 
-			_, err = fmt.Fprintf(&msg, "• %s, Value: %.2f",
+			slices.Sort(dms)
+
+			_, err = fmt.Fprintf(&msg, "%d. %s, Value: %.2f\t\n",
+				i+1,
 				strings.Join(dms, ", "),
 				vm.Value)
 			if err != nil {
 				return "", err
 			}
-
-			msg.WriteByte('\n')
 		}
 	}
 
