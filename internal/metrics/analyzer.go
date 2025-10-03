@@ -121,8 +121,9 @@ func (a *MetricAnalyzer) analyzeMetricsForViolations(
 	alarm *types.MetricAlarm,
 	metrics []*types.Metric,
 ) ([]ViolatingMetric, error) {
-	endTime := time.Now()
-	evaluationWindow := time.Duration(*alarm.Period**alarm.EvaluationPeriods) * time.Second
+	period := time.Duration(*alarm.Period) * time.Second
+	endTime := alignToPeriodBoundary(time.Now(), period)
+	evaluationWindow := period * time.Duration(*alarm.EvaluationPeriods)
 	startTime := endTime.Add(-evaluationWindow)
 
 	metricQueries := make([]types.MetricDataQuery, len(metrics))
@@ -230,4 +231,19 @@ func (a *MetricAnalyzer) createViolatingMetric(metric types.Metric, value float6
 		Dimensions: dimensions,
 		Timestamp:  timestamp,
 	}
+}
+
+// alignToPeriodBoundary aligns a timestamp to CloudWatch period boundaries.
+// CloudWatch returns no data for daily metrics when queried with misaligned time windows (e.g., 07:31 to 07:31
+// instead of 00:00 to 00:00).
+func alignToPeriodBoundary(t time.Time, period time.Duration) time.Time {
+	// For 1-day periods, align to midnight UTC
+	if period >= 24*time.Hour {
+		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+	}
+
+	// For shorter periods, round down to the nearest period boundary
+	periodSeconds := int64(period.Seconds())
+	alignedUnix := (t.Unix() / periodSeconds) * periodSeconds
+	return time.Unix(alignedUnix, 0).UTC()
 }
