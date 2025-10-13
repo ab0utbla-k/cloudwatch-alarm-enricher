@@ -3,7 +3,7 @@ module github.com/ab0utbla-k/cloudwatch-alarm-enricher
 go 1.25
 
 require (
-	github.com/aws/aws-lambda-go v1.49.0
+	github.com/aws/aws-lambda-go v1.50.0
 	github.com/aws/aws-sdk-go-v2 v1.39.2
 	github.com/aws/aws-sdk-go-v2/config v1.31.12
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.51.1
