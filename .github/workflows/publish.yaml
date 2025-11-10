@@ -11,7 +11,7 @@ on:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
-  IMAGE_TAG: ${{ inputs.image-tag }}
+
 
 jobs:
   release:
@@ -53,6 +53,7 @@ jobs:
       - name: Build & Publish Artifacts
         shell: bash
         env:
+          IMAGE_TAG: ${{ inputs.image-tag }}
           DOCKER_BUILD_ARGS: >-
             --push
         run: make docker.build
