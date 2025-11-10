@@ -103,6 +103,8 @@ clean: ## Remove build artifacts
 
 # ====================================================================================
 # Build Artifacts
+DOCKERFILE ?= Dockerfile
+DOCKER ?= docker
 DOCKER_BUILD_ARGS ?=
 
 # Image registry for build/push image targets
