@@ -6,18 +6,20 @@ import (
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/utils/env"
 )
 
-type NotificationProvider string
+type DispatchTarget string
 
 const (
-	ProviderSNS   NotificationProvider = "sns"
-	ProviderSlack NotificationProvider = "slack"
-	ProviderTeams NotificationProvider = "teams"
+	TargetSNS         DispatchTarget = "sns"
+	TargetEventBridge DispatchTarget = "eventbridge"
+	TargetSlack       DispatchTarget = "slack"
+	TargetTeams       DispatchTarget = "teams"
 )
 
 type Config struct {
-	AWSRegion            string
-	NotificationProvider NotificationProvider
+	AWSRegion      string
+	DispatchTarget DispatchTarget
 
+	EventBusARN     string
 	SNSTopicARN     string
 	SlackWebhookURL string
 	TeamsWebhookURL string
@@ -33,29 +35,36 @@ func Load() (*Config, error) {
 
 	cfg.AWSRegion = region
 
-	provider := env.Get("NOTIFICATION_PROVIDER", string(ProviderSNS), env.ParseNonEmptyString)
+	dst := env.Get("ALARM_DESTINATION", string(TargetSNS), env.ParseNonEmptyString)
+	cfg.DispatchTarget = DispatchTarget(dst)
 
-	switch NotificationProvider(provider) {
-	case ProviderSNS:
+	switch cfg.DispatchTarget {
+	case TargetSNS:
 		topicARN, err := env.GetRequired("SNS_TOPIC_ARN", env.ParseNonEmptyString)
 		if err != nil {
 			return nil, err
 		}
 		cfg.SNSTopicARN = topicARN
-	case ProviderTeams:
+	case TargetEventBridge:
+		busARN, err := env.GetRequired("EVENT_BUS_ARN", env.ParseNonEmptyString)
+		if err != nil {
+			return nil, err
+		}
+		cfg.EventBusARN = busARN
+	case TargetTeams:
 		webhookURL, err := env.GetRequired("TEAMS_WEBHOOK_URL", env.ParseNonEmptyString)
 		if err != nil {
 			return nil, err
 		}
 		cfg.TeamsWebhookURL = webhookURL
-	case ProviderSlack:
+	case TargetSlack:
 		webhookURL, err := env.GetRequired("SLACK_WEBHOOK_URL", env.ParseNonEmptyString)
 		if err != nil {
 			return nil, err
 		}
 		cfg.SlackWebhookURL = webhookURL
 	default:
-		return nil, fmt.Errorf("invalid notification provider: %s", provider)
+		return nil, fmt.Errorf("invalid dispatch target: %s", dst)
 	}
 
 	return cfg, nil

@@ -9,14 +9,14 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/client"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/dispatch"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/handler"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/metrics"
-	snsnotifier "github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/notification/sns"
 )
 
 func main() {
@@ -37,13 +37,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	snsClient := sns.NewFromConfig(awsCfg)
-	cwClient := client.NewCloudWatch(cloudwatch.NewFromConfig(awsCfg))
+	cwClient := cloudwatch.NewFromConfig(awsCfg)
 
 	analyzer := metrics.NewMetricAnalyzer(cwClient, logger)
-	notifier := snsnotifier.New(snsClient, cfg)
 	enricher := alarm.NewMetricEnricher(cwClient, analyzer, logger)
 
-	h := handler.NewEventHandler(enricher, notifier, logger)
+	var sender dispatch.Sender
+
+	logger.Info("initializing sender", "target", cfg.DispatchTarget)
+	switch cfg.DispatchTarget {
+	case config.TargetSNS:
+		snsClient := sns.NewFromConfig(awsCfg)
+		sender = dispatch.NewSNSSender(snsClient, cfg)
+	case config.TargetEventBridge:
+		ebClient := eventbridge.NewFromConfig(awsCfg)
+		sender = dispatch.NewEventBridgeSender(ebClient, cfg)
+	default:
+		logger.Error("unknown dispatch target", "target", cfg.DispatchTarget)
+		os.Exit(1)
+	}
+
+	h := handler.NewEventHandler(enricher, sender, logger)
 	lambda.Start(h.HandleRequest)
 }

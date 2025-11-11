@@ -29,12 +29,6 @@ type CloudWatchClient struct {
 	client *cloudwatch.Client
 }
 
-func NewCloudWatch(client *cloudwatch.Client) *CloudWatchClient {
-	return &CloudWatchClient{
-		client: client,
-	}
-}
-
 // DescribeAlarms retrieves information about CloudWatch alarms.
 func (c *CloudWatchClient) DescribeAlarms(ctx context.Context, input *cloudwatch.DescribeAlarmsInput, optFns ...func(*cloudwatch.Options)) (*cloudwatch.DescribeAlarmsOutput, error) {
 	return c.client.DescribeAlarms(ctx, input, optFns...)

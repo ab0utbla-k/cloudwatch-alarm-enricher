@@ -9,19 +9,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/notification"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/dispatch"
 )
 
 type EventHandler struct {
 	enricher alarm.Enricher
-	notifier notification.Sender
+	sender   dispatch.Sender
 	logger   *slog.Logger
 }
 
-func NewEventHandler(enricher alarm.Enricher, notifier notification.Sender, logger *slog.Logger) *EventHandler {
+func NewEventHandler(enricher alarm.Enricher, sender dispatch.Sender, logger *slog.Logger) *EventHandler {
 	return &EventHandler{
 		enricher: enricher,
-		notifier: notifier,
+		sender:   sender,
 		logger:   logger,
 	}
 }
@@ -52,16 +52,7 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 		"alarm", aws.ToString(enriched.Alarm.AlarmName),
 		"violating_count", len(enriched.ViolatingMetrics))
 
-	formatter := getMessageFormatter(h.notifier.GetFormat())
-
-	subj := "CloudWatch Alarm - " + aws.ToString(enriched.Alarm.AlarmName)
-	msg, err := formatter.Format(enriched)
-	if err != nil {
-		h.logger.Error("failed to build message", "error", err)
-		return err
-	}
-
-	err = h.notifier.Send(ctx, subj, msg)
+	err = h.sender.Send(ctx, enriched)
 	if err != nil {
 		h.logger.Error("failed to send notification",
 			"alarm", aws.ToString(enriched.Alarm.AlarmName),
@@ -69,13 +60,4 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 	}
 
 	return err
-}
-
-func getMessageFormatter(format notification.MessageFormat) notification.MessageFormatter {
-	switch format {
-	case notification.FormatText:
-		return &notification.TextMessageFormatter{}
-	default:
-		return &notification.TextMessageFormatter{}
-	}
 }

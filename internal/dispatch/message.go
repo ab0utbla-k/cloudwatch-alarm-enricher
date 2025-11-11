@@ -1,6 +1,7 @@
-package notification
+package dispatch
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -89,4 +90,15 @@ func getComparisonSymbol(op types.ComparisonOperator) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported comparison operator: %s", op)
 	}
+}
+
+type JSONMessageFormatter struct{}
+
+func (f *JSONMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error) {
+	b, err := json.Marshal(event)
+	if err != nil {
+		return "", err
+	}
+
+	return string(b), nil
 }
