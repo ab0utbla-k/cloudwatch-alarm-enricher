@@ -36,8 +36,9 @@ func Load() (*Config, error) {
 	cfg.AWSRegion = region
 
 	dst := env.Get("ALARM_DESTINATION", string(TargetSNS), env.ParseNonEmptyString)
+	cfg.DispatchTarget = DispatchTarget(dst)
 
-	switch DispatchTarget(dst) {
+	switch cfg.DispatchTarget {
 	case TargetSNS:
 		topicARN, err := env.GetRequired("SNS_TOPIC_ARN", env.ParseNonEmptyString)
 		if err != nil {
