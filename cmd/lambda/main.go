@@ -44,17 +44,16 @@ func main() {
 
 	var sender dispatch.Sender
 
+	logger.Info("initializing sender", "target", cfg.DispatchTarget)
 	switch cfg.DispatchTarget {
 	case config.TargetSNS:
 		snsClient := sns.NewFromConfig(awsCfg)
 		sender = dispatch.NewSNSSender(snsClient, cfg)
-		logger.Info("SNS Sender initialized")
 	case config.TargetEventBridge:
 		ebClient := eventbridge.NewFromConfig(awsCfg)
 		sender = dispatch.NewEventBridgeSender(ebClient, cfg)
-		logger.Info("EventBridge Sender initialized")
 	default:
-		logger.Error("unknown dispatch target")
+		logger.Error("unknown dispatch target", "target", cfg.DispatchTarget)
 		os.Exit(1)
 	}
 
