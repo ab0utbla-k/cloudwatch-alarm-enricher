@@ -1,7 +1,7 @@
-package notification
+package dispatch
 
 import (
-	"log/slog"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -105,7 +105,87 @@ func TestTextMessageFormatter_DimensionsSorted(t *testing.T) {
 	message, err := formatter.Format(event)
 	require.NoError(t, err)
 	require.Contains(t, message, "AAA=first, MMM=middle, ZZZ=last")
-	slog.Info("HERE", "msg", message)
+}
+
+func TestJSONMessageFormatter_NoViolations(t *testing.T) {
+	formatter := &JSONMessageFormatter{}
+
+	event := &alarm.EnrichedEvent{
+		Alarm: &types.MetricAlarm{
+			AlarmName:   aws.String("TestAlarm"),
+			StateValue:  types.StateValueAlarm,
+			StateReason: aws.String("Threshold breached"),
+			Threshold:   aws.Float64(100.0),
+		},
+		ViolatingMetrics: []metrics.ViolatingMetric{},
+		Timestamp:        time.Date(2025, 10, 2, 12, 0, 0, 0, time.UTC),
+		Metadata:         map[string]string{"status": "resolved"},
+	}
+
+	message, err := formatter.Format(event)
+	require.NoError(t, err)
+	require.NotEmpty(t, message)
+
+	var result alarm.EnrichedEvent
+	err = json.Unmarshal([]byte(message), &result)
+	require.NoError(t, err)
+
+	assert.Equal(t, "TestAlarm", aws.ToString(result.Alarm.AlarmName))
+	assert.Equal(t, types.StateValueAlarm, result.Alarm.StateValue)
+	assert.Empty(t, result.ViolatingMetrics)
+	assert.Equal(t, "resolved", result.Metadata["status"])
+}
+
+func TestJSONMessageFormatter_WithViolations(t *testing.T) {
+	formatter := &JSONMessageFormatter{}
+
+	timestamp := time.Date(2025, 10, 2, 12, 0, 0, 0, time.UTC)
+	event := &alarm.EnrichedEvent{
+		Alarm: &types.MetricAlarm{
+			AlarmName:          aws.String("HighErrorRate"),
+			StateValue:         types.StateValueAlarm,
+			StateReason:        aws.String("Threshold breached"),
+			Threshold:          aws.Float64(10.0),
+			ComparisonOperator: types.ComparisonOperatorGreaterThanThreshold,
+		},
+		ViolatingMetrics: []metrics.ViolatingMetric{
+			{
+				Value: 15.5,
+				Dimensions: map[string]string{
+					"ServiceName": "api-service",
+					"Environment": "production",
+				},
+				Timestamp: timestamp,
+			},
+			{
+				Value: 20.3,
+				Dimensions: map[string]string{
+					"ServiceName": "worker-service",
+				},
+				Timestamp: timestamp,
+			},
+		},
+		Timestamp: timestamp,
+	}
+
+	message, err := formatter.Format(event)
+	require.NoError(t, err)
+	require.NotEmpty(t, message)
+
+	var result alarm.EnrichedEvent
+	err = json.Unmarshal([]byte(message), &result)
+	require.NoError(t, err)
+
+	assert.Equal(t, "HighErrorRate", aws.ToString(result.Alarm.AlarmName))
+	assert.Equal(t, types.StateValueAlarm, result.Alarm.StateValue)
+	assert.Equal(t, 10.0, aws.ToFloat64(result.Alarm.Threshold))
+
+	require.Len(t, result.ViolatingMetrics, 2)
+	assert.Equal(t, 15.5, result.ViolatingMetrics[0].Value)
+	assert.Equal(t, "api-service", result.ViolatingMetrics[0].Dimensions["ServiceName"])
+	assert.Equal(t, "production", result.ViolatingMetrics[0].Dimensions["Environment"])
+	assert.Equal(t, 20.3, result.ViolatingMetrics[1].Value)
+	assert.Equal(t, "worker-service", result.ViolatingMetrics[1].Dimensions["ServiceName"])
 }
 
 func TestGetComparisonSymbol(t *testing.T) {
