@@ -43,6 +43,7 @@ func main() {
 	enricher := alarm.NewMetricEnricher(cwClient, analyzer, logger)
 
 	var sender dispatch.Sender
+
 	switch cfg.DispatchTarget {
 	case config.TargetSNS:
 		snsClient := sns.NewFromConfig(awsCfg)
