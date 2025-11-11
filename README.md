@@ -1,44 +1,38 @@
 # CloudWatch Alarm Enricher
 
-AWS Lambda function that enriches CloudWatch alarm notifications with detailed metric analysis and resource-specific context.
+AWS Lambda function that enriches CloudWatch alarm notifications with detailed metric analysis.
 
-When a CloudWatch alarm triggers, this Lambda function queries CloudWatch metrics to identify the exact resources (EC2 instances, EKS pods, RDS databases, etc.) that are violating the alarm threshold, providing actionable insights instead of generic alerts.
+When a CloudWatch alarm triggers, this Lambda queries CloudWatch metrics to identify the exact resources violating the threshold and dispatches actionable notifications.
 
 ## Features
 
 - **Metric Enrichment**: Identifies specific resources violating alarm thresholds
-- **Universal Support**: Works with all CloudWatch alarms (EC2, EKS, RDS, etc.)
-- **Event-Driven**: Triggered by CloudWatch alarm state changes via EventBridge
-- **SNS Integration**: Sends enriched notifications via Amazon SNS
+- **Multiple Dispatch Targets**: Send to SNS or EventBridge
+- **Universal Support**: Works with any CloudWatch alarm
+- **Container-based**: Deployed as Lambda container image
 
 ## How It Works
 
 1. CloudWatch alarm state changes to `ALARM`
-2. EventBridge captures the event and triggers the Lambda
-3. Lambda fetches alarm details from CloudWatch
-4. Lambda queries metric data to identify which specific resources are violating the threshold
-5. Lambda sends an enriched notification via SNS with detailed breakdown
-
-## Architecture
-
-```
-CloudWatch Alarm → EventBridge → Lambda → SNS → Notifications
-                                   ↓
-                             CloudWatch API
-                           (metric queries)
-```
+2. EventBridge triggers the Lambda function
+3. Lambda enriches alarm with violating metrics
+4. Lambda dispatches notification to configured target
 
 ## Configuration
 
 ### Environment Variables
 
-Required environment variables for Lambda function:
+**Required:**
 - `AWS_REGION`: AWS region (e.g., `us-east-1`)
-- `SNS_TOPIC_ARN`: SNS topic ARN for notifications (e.g., `arn:aws:sns:us-east-1:123456789012:alarm-notifications`)
+- `ALARM_DESTINATION`: Dispatch target - `sns` or `eventbridge` (default: `sns`)
+
+**Target-specific:**
+- `SNS_TOPIC_ARN`: SNS topic ARN (required if `ALARM_DESTINATION=sns`)
+- `EVENT_BUS_ARN`: EventBridge bus name or ARN (required if `ALARM_DESTINATION=eventbridge`)
 
 ### IAM Permissions
 
-The Lambda execution role requires the following permissions:
+Lambda execution role needs:
 
 ```json
 {
@@ -47,28 +41,32 @@ The Lambda execution role requires the following permissions:
     {
       "Effect": "Allow",
       "Action": [
-        "cloudwatch:ListMetrics",
+        "cloudwatch:DescribeAlarms",
         "cloudwatch:GetMetricData",
-        "cloudwatch:DescribeAlarms"
+        "cloudwatch:ListMetrics"
       ],
       "Resource": "*"
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "sns:Publish"
-      ],
+      "Action": ["sns:Publish"],
       "Resource": "arn:aws:sns:REGION:ACCOUNT:TOPIC_NAME"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["events:PutEvents"],
+      "Resource": "arn:aws:events:REGION:ACCOUNT:event-bus/BUS_NAME"
     }
   ]
 }
 ```
 
+Add only the permissions needed for your chosen dispatch target.
+
 ### EventBridge Rule
 
-Create an EventBridge rule to trigger the Lambda on CloudWatch alarm state changes:
+Trigger Lambda on CloudWatch alarm state changes:
 
-**Event Pattern:**
 ```json
 {
   "source": ["aws.cloudwatch"],
@@ -92,7 +90,7 @@ make build
 # Create deployment package
 make zip
 
-# Deploy to AWS Lambda (requires LAMBDA_FUNCTION_NAME env var or default name)
+# Deploy to AWS Lambda
 make deploy
 
 # Or specify custom function name
@@ -101,13 +99,6 @@ LAMBDA_FUNCTION_NAME=my-alarm-enricher make deploy
 # Clean build artifacts
 make clean
 ```
-
-### Using IaC Tools
-
-Deploy using your preferred Infrastructure as Code tool:
-- AWS CDK
-- Terraform
-- CloudFormation
 
 ## Development
 
@@ -120,8 +111,8 @@ go test ./...
 # Run tests with coverage
 go test -cover ./...
 
-# Run tests verbosely
-go test -v ./...
+# Using Makefile
+make test
 ```
 
 ### Code Quality
@@ -133,7 +124,8 @@ make lint
 # Format and fix code
 make fmt
 
-# Both will install golangci-lint locally if not present
+# Tidy modules
+make tidy
 ```
 
 ## Example Output
@@ -156,10 +148,6 @@ Metrics currently violating (>= 1.0) threshold:
 Timestamp: 2025-10-03T16:13:52Z
 ```
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Apache License 2.0 - see [LICENSE](LICENSE)
