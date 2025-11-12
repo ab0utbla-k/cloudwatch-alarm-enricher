@@ -13,15 +13,6 @@ import (
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
 )
 
-type comparisonSymbol string
-
-const (
-	GreaterThanOrEqualToThreshold comparisonSymbol = ">="
-	GreaterThanThreshold          comparisonSymbol = ">"
-	LessThanThreshold             comparisonSymbol = "<"
-	LessThanOrEqualToThreshold    comparisonSymbol = "<="
-)
-
 type TextMessageFormatter struct{}
 
 func (f *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error) {
