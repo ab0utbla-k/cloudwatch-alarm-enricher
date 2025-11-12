@@ -13,15 +13,6 @@ import (
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
 )
 
-type comparisonSymbol string
-
-const (
-	GreaterThanOrEqualToThreshold comparisonSymbol = ">="
-	GreaterThanThreshold          comparisonSymbol = ">"
-	LessThanThreshold             comparisonSymbol = "<"
-	LessThanOrEqualToThreshold    comparisonSymbol = "<="
-)
-
 type TextMessageFormatter struct{}
 
 func (f *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error) {
@@ -80,13 +71,13 @@ func (f *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error
 func getComparisonSymbol(op types.ComparisonOperator) (string, error) {
 	switch op {
 	case types.ComparisonOperatorGreaterThanThreshold:
-		return string(GreaterThanThreshold), nil
+		return ">", nil
 	case types.ComparisonOperatorGreaterThanOrEqualToThreshold:
-		return string(GreaterThanOrEqualToThreshold), nil
+		return ">=", nil
 	case types.ComparisonOperatorLessThanThreshold:
-		return string(LessThanThreshold), nil
+		return "<", nil
 	case types.ComparisonOperatorLessThanOrEqualToThreshold:
-		return string(LessThanOrEqualToThreshold), nil
+		return "<=", nil
 	default:
 		return "", fmt.Errorf("unsupported comparison operator: %s", op)
 	}

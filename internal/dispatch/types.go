@@ -16,10 +16,10 @@ type MessageFormatter interface {
 	Format(event *alarm.EnrichedEvent) (string, error)
 }
 
-//type MessageFormat string
+// type MessageFormat string
 //
-//const (
+// const (
 //	FormatJSON     MessageFormat = "json"
 //	FormatText     MessageFormat = "text"
 //	FormatMarkdown MessageFormat = "markdown"
-//)
+// )
