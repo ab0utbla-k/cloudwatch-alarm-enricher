@@ -24,7 +24,7 @@ func main() {
 
 	cfg, err := config.Load()
 	if err != nil {
-		logger.Error("failed to load config", "error", err)
+		logger.Error("cannot load config", slog.Any("error", err))
 		os.Exit(1)
 	}
 
@@ -33,7 +33,7 @@ func main() {
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(cfg.AWSRegion))
 	if err != nil {
-		logger.Error("failed to load aws config", "error", err)
+		logger.Error("cannot load aws config", slog.Any("error", err))
 		os.Exit(1)
 	}
 

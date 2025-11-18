@@ -35,28 +35,40 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 		return err
 	}
 
-	h.logger.Info("alarm event received",
-		"source", event.Source,
-		"detailType", event.DetailType,
+	h.logger.InfoContext(
+		ctx,
+		"processing alarm event",
+		slog.String("source", event.Source),
+		slog.String("detailType", event.DetailType),
 	)
 
 	enriched, err := h.enricher.Enrich(ctx, eventData.AlarmName)
 	if err != nil {
-		h.logger.Error("failed to enrich alarm",
-			"alarm", eventData.AlarmName,
-			"error", err)
+		h.logger.ErrorContext(
+			ctx,
+			"cannot enrich alarm",
+			slog.String("alarm", eventData.AlarmName),
+			slog.Any("error", err),
+		)
+
 		return err
 	}
 
-	h.logger.Info("sending notification",
-		"alarm", aws.ToString(enriched.Alarm.AlarmName),
-		"violating_count", len(enriched.ViolatingMetrics))
+	h.logger.InfoContext(
+		ctx,
+		"sending notification",
+		slog.String("alarm", aws.ToString(enriched.Alarm.AlarmName)),
+		slog.Int("violatingCount", len(enriched.ViolatingMetrics)),
+	)
 
 	err = h.sender.Send(ctx, enriched)
 	if err != nil {
-		h.logger.Error("failed to send notification",
-			"alarm", aws.ToString(enriched.Alarm.AlarmName),
-			"error", err)
+		h.logger.ErrorContext(
+			ctx,
+			"cannot send notification",
+			slog.String("alarm", aws.ToString(enriched.Alarm.AlarmName)),
+			slog.Any("error", err),
+		)
 	}
 
 	return err
