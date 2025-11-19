@@ -48,19 +48,19 @@ func (a *MetricAnalyzer) FindViolatingMetrics(ctx context.Context, alarm *types.
 	metricNamespace := aws.ToString(alarm.Namespace)
 	metricName := aws.ToString(alarm.MetricName)
 
-	a.logger.Debug("searching for enriched metrics",
-		"namespace", metricNamespace,
-		"metricName", metricName)
-
 	metrics, err := a.findEnrichedMetrics(ctx, metricNamespace, metricName, dimensionFilters)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(metrics) == 0 {
-		a.logger.Debug("no enriched metrics found",
-			"namespace", metricNamespace,
-			"metricName", metricName)
+		a.logger.InfoContext(
+			ctx,
+			"no enriched metrics found",
+			slog.String("namespace", metricNamespace),
+			slog.String("metricName", metricName),
+		)
+
 		return nil, nil
 	}
 
@@ -69,9 +69,12 @@ func (a *MetricAnalyzer) FindViolatingMetrics(ctx context.Context, alarm *types.
 		return nil, err
 	}
 
-	a.logger.Info("metrics analysis completed",
+	a.logger.InfoContext(
+		ctx,
+		"metrics analysis completed",
 		slog.Int("totalMetrics", len(metrics)),
-		slog.Int("violatingMetrics", len(violating)))
+		slog.Int("violatingMetrics", len(violating)),
+	)
 
 	return violating, nil
 }
@@ -179,8 +182,6 @@ func (a *MetricAnalyzer) processBatch(
 
 	for i, result := range output.MetricDataResults {
 		if len(result.Values) == 0 {
-			a.logger.Debug("no data for metric",
-				slog.String("metricId", aws.ToString(result.Id)))
 			continue
 		}
 
@@ -189,10 +190,6 @@ func (a *MetricAnalyzer) processBatch(
 
 		if a.isViolatingThreshold(latestValue, alarm) {
 			metric := metrics[i]
-			a.logger.Debug("violation detected",
-				slog.String("metricId", aws.ToString(result.Id)),
-				slog.Float64("value", latestValue),
-				slog.Float64("threshold", aws.ToFloat64(alarm.Threshold)))
 
 			vm := a.createViolatingMetric(*metric, latestValue, timestamp)
 			violating = append(violating, vm)

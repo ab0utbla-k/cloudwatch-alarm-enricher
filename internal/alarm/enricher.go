@@ -64,12 +64,6 @@ func (e *MetricEnricher) Enrich(ctx context.Context, alarmName string) (*Enriche
 
 	alarm := &output.MetricAlarms[0]
 
-	e.logger.Info("processing alarm",
-		"alarm", aws.ToString(alarm.AlarmName),
-		"state", alarm.StateValue,
-		"metric", aws.ToString(alarm.MetricName),
-		"namespace", aws.ToString(alarm.Namespace))
-
 	processed := &EnrichedEvent{
 		Alarm:            alarm,
 		Timestamp:        time.Now(),
@@ -77,8 +71,11 @@ func (e *MetricEnricher) Enrich(ctx context.Context, alarmName string) (*Enriche
 	}
 
 	if alarm.StateValue != types.StateValueAlarm {
-		e.logger.Info("alarm resolved during processing",
-			"state", alarm.StateValue)
+		e.logger.InfoContext(ctx,
+			"alarm resolved during processing",
+			slog.String("alarm", alarmName),
+			slog.String("state", string(alarm.StateValue)),
+		)
 
 		processed.Metadata = map[string]string{"status": "resolved"}
 
@@ -88,6 +85,16 @@ func (e *MetricEnricher) Enrich(ctx context.Context, alarmName string) (*Enriche
 	violatingMetrics, err := e.analyzer.FindViolatingMetrics(ctx, alarm)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(violatingMetrics) == 0 {
+		e.logger.WarnContext(
+			ctx,
+			"alarm in ALARM state but no violations found",
+			slog.String("alarm", alarmName),
+			slog.String("metric", aws.ToString(alarm.MetricName)),
+			slog.String("namespace", aws.ToString(alarm.Namespace)),
+		)
 	}
 
 	processed.ViolatingMetrics = violatingMetrics
