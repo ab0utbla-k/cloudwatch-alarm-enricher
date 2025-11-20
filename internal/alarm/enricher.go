@@ -16,10 +16,10 @@ type Enricher interface {
 }
 
 type EnrichedEvent struct {
+	AccountID        string             `json:"accountID"`
 	Alarm            *types.MetricAlarm `json:"alarm"`
 	ViolatingMetrics []ViolatingMetric  `json:"violatingMetrics"`
 	Timestamp        time.Time          `json:"timestamp"`
-	Metadata         map[string]string  `json:"metadata"`
 }
 
 type ViolatingMetric struct {
