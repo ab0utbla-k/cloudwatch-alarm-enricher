@@ -2,21 +2,21 @@ package dispatch
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/client"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
 )
 
 type SNSSender struct {
-	client client.SNSAPI
+	client SNSAPI
 	config *config.Config
 }
 
-func NewSNSSender(client client.SNSAPI, config *config.Config) *SNSSender {
+func NewSNSSender(client SNSAPI, config *config.Config) *SNSSender {
 	return &SNSSender{
 		client: client,
 		config: config,
@@ -27,7 +27,7 @@ func (s *SNSSender) Send(ctx context.Context, event *alarm.EnrichedEvent) error 
 	formatter := &TextMessageFormatter{}
 	msg, err := formatter.Format(event)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot format message: %w", err)
 	}
 
 	input := &sns.PublishInput{
@@ -36,6 +36,9 @@ func (s *SNSSender) Send(ctx context.Context, event *alarm.EnrichedEvent) error 
 		Message:  aws.String(msg),
 	}
 
-	_, err = s.client.Publish(ctx, input)
-	return err
+	if _, err = s.client.Publish(ctx, input); err != nil {
+		return fmt.Errorf("cannot publish to SNS topic %q: %w", s.config.SNSTopicARN, err)
+	}
+
+	return nil
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/metrics"
 )
 
 func TestTextMessageFormatter_NoViolations(t *testing.T) {
@@ -24,7 +23,7 @@ func TestTextMessageFormatter_NoViolations(t *testing.T) {
 			StateReason: aws.String("Threshold breached"),
 			Threshold:   aws.Float64(100.0),
 		},
-		ViolatingMetrics: []metrics.ViolatingMetric{},
+		ViolatingMetrics: []alarm.ViolatingMetric{},
 		Timestamp:        time.Date(2025, 10, 2, 12, 0, 0, 0, time.UTC),
 	}
 
@@ -46,7 +45,7 @@ func TestTextMessageFormatter_WithViolations(t *testing.T) {
 			Threshold:          aws.Float64(10.0),
 			ComparisonOperator: types.ComparisonOperatorGreaterThanThreshold,
 		},
-		ViolatingMetrics: []metrics.ViolatingMetric{
+		ViolatingMetrics: []alarm.ViolatingMetric{
 			{
 				Value: 15.5,
 				Dimensions: map[string]string{
@@ -88,7 +87,7 @@ func TestTextMessageFormatter_DimensionsSorted(t *testing.T) {
 			Threshold:          aws.Float64(5.0),
 			ComparisonOperator: types.ComparisonOperatorGreaterThanOrEqualToThreshold,
 		},
-		ViolatingMetrics: []metrics.ViolatingMetric{
+		ViolatingMetrics: []alarm.ViolatingMetric{
 			{
 				Value: 10.0,
 				Dimensions: map[string]string{
@@ -117,7 +116,7 @@ func TestJSONMessageFormatter_NoViolations(t *testing.T) {
 			StateReason: aws.String("Threshold breached"),
 			Threshold:   aws.Float64(100.0),
 		},
-		ViolatingMetrics: []metrics.ViolatingMetric{},
+		ViolatingMetrics: []alarm.ViolatingMetric{},
 		Timestamp:        time.Date(2025, 10, 2, 12, 0, 0, 0, time.UTC),
 		Metadata:         map[string]string{"status": "resolved"},
 	}
@@ -148,7 +147,7 @@ func TestJSONMessageFormatter_WithViolations(t *testing.T) {
 			Threshold:          aws.Float64(10.0),
 			ComparisonOperator: types.ComparisonOperatorGreaterThanThreshold,
 		},
-		ViolatingMetrics: []metrics.ViolatingMetric{
+		ViolatingMetrics: []alarm.ViolatingMetric{
 			{
 				Value: 15.5,
 				Dimensions: map[string]string{

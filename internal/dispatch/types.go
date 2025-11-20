@@ -3,8 +3,18 @@ package dispatch
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
+
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
 )
+
+type EventBridgeAPI interface {
+	PutEvents(
+		ctx context.Context,
+		params *eventbridge.PutEventsInput,
+		optFns ...func(*eventbridge.Options)) (*eventbridge.PutEventsOutput, error)
+}
 
 type Sender interface {
 	Send(ctx context.Context, event *alarm.EnrichedEvent) error
@@ -14,6 +24,13 @@ type Sender interface {
 
 type MessageFormatter interface {
 	Format(event *alarm.EnrichedEvent) (string, error)
+}
+
+type SNSAPI interface {
+	Publish(
+		ctx context.Context,
+		input *sns.PublishInput,
+		optFns ...func(*sns.Options)) (*sns.PublishOutput, error)
 }
 
 // type MessageFormat string
