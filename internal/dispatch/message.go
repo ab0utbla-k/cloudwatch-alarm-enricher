@@ -23,6 +23,8 @@ func (f *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error
 	msg.WriteString(aws.ToString(a.AlarmName))
 	msg.WriteString("\nState: ")
 	msg.WriteString(string(event.Alarm.StateValue))
+	msg.WriteString("\nAccountID: ")
+	msg.WriteString(event.AccountID)
 	msg.WriteString("\nReason: ")
 	msg.WriteString(aws.ToString(a.StateReason))
 	msg.WriteString("\n\n")

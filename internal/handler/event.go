@@ -62,6 +62,8 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 		return err
 	}
 
+	enriched.AccountID = event.AccountID
+
 	if err := h.sender.Send(ctx, enriched); err != nil {
 		h.logger.ErrorContext(
 			ctx,

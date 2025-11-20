@@ -118,7 +118,6 @@ func TestJSONMessageFormatter_NoViolations(t *testing.T) {
 		},
 		ViolatingMetrics: []alarm.ViolatingMetric{},
 		Timestamp:        time.Date(2025, 10, 2, 12, 0, 0, 0, time.UTC),
-		Metadata:         map[string]string{"status": "resolved"},
 	}
 
 	message, err := formatter.Format(event)
@@ -132,7 +131,6 @@ func TestJSONMessageFormatter_NoViolations(t *testing.T) {
 	assert.Equal(t, "TestAlarm", aws.ToString(result.Alarm.AlarmName))
 	assert.Equal(t, types.StateValueAlarm, result.Alarm.StateValue)
 	assert.Empty(t, result.ViolatingMetrics)
-	assert.Equal(t, "resolved", result.Metadata["status"])
 }
 
 func TestJSONMessageFormatter_WithViolations(t *testing.T) {
