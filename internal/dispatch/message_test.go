@@ -17,6 +17,7 @@ func TestTextMessageFormatter_NoViolations(t *testing.T) {
 	formatter := &TextMessageFormatter{}
 
 	event := &alarm.EnrichedEvent{
+		AccountID: "123456789012",
 		Alarm: &types.MetricAlarm{
 			AlarmName:   aws.String("TestAlarm"),
 			StateValue:  types.StateValueAlarm,
@@ -29,6 +30,8 @@ func TestTextMessageFormatter_NoViolations(t *testing.T) {
 
 	message, err := formatter.Format(event)
 	require.NoError(t, err)
+
+	assert.Contains(t, message, "123456789012")
 	assert.Contains(t, message, "TestAlarm")
 	assert.Contains(t, message, "ALARM")
 	assert.Contains(t, message, "No specific services currently violating the threshold")
@@ -110,6 +113,7 @@ func TestJSONMessageFormatter_NoViolations(t *testing.T) {
 	formatter := &JSONMessageFormatter{}
 
 	event := &alarm.EnrichedEvent{
+		AccountID: "123456789012",
 		Alarm: &types.MetricAlarm{
 			AlarmName:   aws.String("TestAlarm"),
 			StateValue:  types.StateValueAlarm,
@@ -128,6 +132,7 @@ func TestJSONMessageFormatter_NoViolations(t *testing.T) {
 	err = json.Unmarshal([]byte(message), &result)
 	require.NoError(t, err)
 
+	assert.Equal(t, "123456789012", result.AccountID)
 	assert.Equal(t, "TestAlarm", aws.ToString(result.Alarm.AlarmName))
 	assert.Equal(t, types.StateValueAlarm, result.Alarm.StateValue)
 	assert.Empty(t, result.ViolatingMetrics)
