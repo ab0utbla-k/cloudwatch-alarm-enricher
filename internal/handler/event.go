@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -32,44 +33,44 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 	}
 
 	if err := json.Unmarshal(event.Detail, &eventData); err != nil {
+		h.logger.ErrorContext(
+			ctx,
+			"cannot parse event detail",
+			slog.String("error", err.Error()),
+		)
 		return err
 	}
 
-	h.logger.InfoContext(
-		ctx,
-		"processing alarm event",
-		slog.String("source", event.Source),
-		slog.String("detailType", event.DetailType),
-	)
+	if eventData.AlarmName == "" {
+		err := errors.New("alarm name is empty")
+		h.logger.ErrorContext(
+			ctx,
+			"invalid event",
+			slog.String("error", err.Error()),
+		)
+		return err
+	}
 
 	enriched, err := h.enricher.Enrich(ctx, eventData.AlarmName)
 	if err != nil {
 		h.logger.ErrorContext(
 			ctx,
 			"cannot enrich alarm",
-			slog.String("alarm", eventData.AlarmName),
-			slog.Any("error", err),
+			slog.String("alarmName", eventData.AlarmName),
+			slog.String("error", err.Error()),
 		)
-
 		return err
 	}
 
-	h.logger.InfoContext(
-		ctx,
-		"sending notification",
-		slog.String("alarm", aws.ToString(enriched.Alarm.AlarmName)),
-		slog.Int("violatingCount", len(enriched.ViolatingMetrics)),
-	)
-
-	err = h.sender.Send(ctx, enriched)
-	if err != nil {
+	if err := h.sender.Send(ctx, enriched); err != nil {
 		h.logger.ErrorContext(
 			ctx,
 			"cannot send notification",
-			slog.String("alarm", aws.ToString(enriched.Alarm.AlarmName)),
-			slog.Any("error", err),
+			slog.String("alarmName", aws.ToString(enriched.Alarm.AlarmName)),
+			slog.String("error", err.Error()),
 		)
+		return err
 	}
 
-	return err
+	return nil
 }
