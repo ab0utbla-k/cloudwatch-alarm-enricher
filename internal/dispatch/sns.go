@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
@@ -24,6 +25,13 @@ func NewSNSSender(client SNSAPI, config *config.Config) *SNSSender {
 }
 
 func (s *SNSSender) Send(ctx context.Context, event *alarm.EnrichedEvent) error {
+	ctx, span := tracer.Start(ctx, "dispatch.send")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("dispatch.target", string(config.TargetSNS)),
+		attribute.String("alarm.name", aws.ToString(event.Alarm.AlarmName)),
+	)
+
 	formatter := &TextMessageFormatter{}
 	msg, err := formatter.Format(event)
 	if err != nil {

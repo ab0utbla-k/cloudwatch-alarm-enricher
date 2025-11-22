@@ -21,3 +21,10 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+      opentelemetry:
+        patterns:
+          - "go.opentelemetry.io/*"
+        update-types:
+          - "minor"
+          - "patch"

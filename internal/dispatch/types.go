@@ -5,9 +5,12 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"go.opentelemetry.io/otel"
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
 )
+
+var tracer = otel.Tracer("github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/dispatch")
 
 type EventBridgeAPI interface {
 	PutEvents(

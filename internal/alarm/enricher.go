@@ -9,7 +9,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
+
+var tracer = otel.Tracer("github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm")
 
 type Enricher interface {
 	Enrich(ctx context.Context, alarmName string) (*EnrichedEvent, error)
@@ -61,6 +65,10 @@ func NewMetricAlarmEnricher(
 }
 
 func (e *MetricAlarmEnricher) Enrich(ctx context.Context, alarmName string) (*EnrichedEvent, error) {
+	ctx, span := tracer.Start(ctx, "alarm.enrich")
+	defer span.End()
+	span.SetAttributes(attribute.String("alarm.name", alarmName))
+
 	output, err := e.cw.DescribeAlarms(ctx, &cloudwatch.DescribeAlarmsInput{
 		AlarmNames: []string{alarmName},
 		MaxRecords: aws.Int32(1),

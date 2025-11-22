@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -11,6 +12,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
@@ -22,7 +31,7 @@ func main() {
 	startTime := time.Now()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	logger.Info("starting cloudwatch alarm enricher...")
+	logger.Info("starting cloudwatch alarm enricher")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -38,6 +47,8 @@ func main() {
 		logger.Error("cannot load aws config", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+
+	otelaws.AppendMiddlewares(&awsCfg.APIOptions)
 
 	cwClient := cloudwatch.NewFromConfig(awsCfg)
 
@@ -60,6 +71,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	tp, err := initTracerProvider(ctx)
+	if err != nil {
+		logger.Error("cannot initialize tracer provider", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			logger.Error("cannot shutdown tracer provider", slog.String("error", err.Error()))
+		}
+	}()
+
 	logger.Info(
 		"started cloudwatch alarm enricher",
 		slog.String("target", string(cfg.DispatchTarget)),
@@ -68,5 +91,41 @@ func main() {
 	)
 
 	h := handler.NewEventHandler(enricher, sender, logger)
-	lambda.Start(h.HandleRequest)
+	lambda.Start(
+		otellambda.InstrumentHandler(
+			h.HandleRequest,
+			otellambda.WithTracerProvider(tp),
+			otellambda.WithFlusher(tp)),
+	)
+}
+
+func initTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
+	exporter, err := otlptracegrpc.New(
+		ctx,
+		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint("localhost:4317"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create OTLP exporter: %w", err)
+	}
+
+	res, err := resource.New(
+		ctx,
+		resource.WithAttributes(
+			semconv.TelemetrySDKLanguageGo,
+			semconv.ServiceNameKey.String(os.Getenv("AWS_LAMBDA_FUNCTION_NAME")),
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create OTEL resource: %w", err)
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	return tp, nil
 }
