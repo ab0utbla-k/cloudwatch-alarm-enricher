@@ -71,18 +71,17 @@ func newMetricDataResult(id string, values []float64, timestamps []time.Time) ty
 
 func TestEnrich_AlarmNotFound(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "nonexistent-alarm"
 
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.DescribeAlarmsOutput{
 		MetricAlarms: []types.MetricAlarm{},
 	}, nil).Once()
 
-	_, err := enricher.Enrich(ctx, alarmName)
+	_, err := enricher.Enrich(context.Background(), alarmName)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 	mockCW.AssertExpectations(t)
@@ -90,17 +89,16 @@ func TestEnrich_AlarmNotFound(t *testing.T) {
 
 func TestEnrich_DescribeAlarmsError(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "test-alarm"
 	expectedError := errors.New("describe alarms failed")
 
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return((*cloudwatch.DescribeAlarmsOutput)(nil), expectedError).Once()
 
-	_, err := enricher.Enrich(ctx, alarmName)
+	_, err := enricher.Enrich(context.Background(), alarmName)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), expectedError.Error())
 	mockCW.AssertExpectations(t)
@@ -108,11 +106,10 @@ func TestEnrich_DescribeAlarmsError(t *testing.T) {
 
 func TestEnrich_AlarmNotInAlarmState(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "ok-alarm"
 
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.DescribeAlarmsOutput{
@@ -121,7 +118,7 @@ func TestEnrich_AlarmNotInAlarmState(t *testing.T) {
 		},
 	}, nil).Once()
 
-	event, err := enricher.Enrich(ctx, alarmName)
+	event, err := enricher.Enrich(context.Background(), alarmName)
 	require.NoError(t, err)
 	assert.NotNil(t, event)
 	assert.Empty(t, event.ViolatingMetrics)
@@ -131,12 +128,11 @@ func TestEnrich_AlarmNotInAlarmState(t *testing.T) {
 
 func TestEnrich_ListMetricsError(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "test-alarm-with-list-metrics-error"
 	expectedError := errors.New("list metrics failed")
 
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.DescribeAlarmsOutput{
@@ -156,12 +152,12 @@ func TestEnrich_ListMetricsError(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("ListMetrics",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.ListMetricsInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return((*cloudwatch.ListMetricsOutput)(nil), expectedError).Once()
 
-	_, err := enricher.Enrich(ctx, alarmName)
+	_, err := enricher.Enrich(context.Background(), alarmName)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), expectedError.Error())
 	mockCW.AssertExpectations(t)
@@ -169,12 +165,10 @@ func TestEnrich_ListMetricsError(t *testing.T) {
 
 func TestEnrich_NoEnrichedMetricsFound(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "test-alarm-no-enriched-metrics"
 
-	// Mock DescribeAlarms to return an alarm in ALARM state
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.DescribeAlarmsOutput{
@@ -201,14 +195,14 @@ func TestEnrich_NoEnrichedMetricsFound(t *testing.T) {
 
 	// Mock ListMetrics to return an empty list
 	mockCW.On("ListMetrics",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.ListMetricsInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.ListMetricsOutput{
 		Metrics: []types.Metric{},
 	}, nil).Once()
 
-	event, err := enricher.Enrich(ctx, alarmName)
+	event, err := enricher.Enrich(context.Background(), alarmName)
 	require.NoError(t, err)
 	assert.NotNil(t, event)
 	assert.Empty(t, event.ViolatingMetrics)
@@ -217,7 +211,6 @@ func TestEnrich_NoEnrichedMetricsFound(t *testing.T) {
 
 func TestEnrich_GetMetricDataError(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "test-alarm-with-get-metric-data-error"
 	expectedError := errors.New("get metric data failed")
 
@@ -225,7 +218,7 @@ func TestEnrich_GetMetricDataError(t *testing.T) {
 	alarm.Dimensions = []types.Dimension{newDimension("InstanceId", "i-12345")}
 
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.DescribeAlarmsOutput{
@@ -233,7 +226,7 @@ func TestEnrich_GetMetricDataError(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("ListMetrics",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.ListMetricsInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.ListMetricsOutput{
@@ -243,12 +236,12 @@ func TestEnrich_GetMetricDataError(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("GetMetricData",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.GetMetricDataInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return((*cloudwatch.GetMetricDataOutput)(nil), expectedError).Once()
 
-	_, err := enricher.Enrich(ctx, alarmName)
+	_, err := enricher.Enrich(context.Background(), alarmName)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), expectedError.Error())
 	mockCW.AssertExpectations(t)
@@ -256,7 +249,6 @@ func TestEnrich_GetMetricDataError(t *testing.T) {
 
 func TestEnrich_SuccessfulEnrichmentWithViolations(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "test-alarm-with-violations"
 	metricName := "CPUUtilization"
 	namespace := "AWS/EC2"
@@ -266,7 +258,7 @@ func TestEnrich_SuccessfulEnrichmentWithViolations(t *testing.T) {
 	alarm.Dimensions = []types.Dimension{newDimension("InstanceId", instanceID)}
 
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.DescribeAlarmsOutput{
@@ -274,7 +266,7 @@ func TestEnrich_SuccessfulEnrichmentWithViolations(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("ListMetrics",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.ListMetricsInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.ListMetricsOutput{
@@ -284,7 +276,7 @@ func TestEnrich_SuccessfulEnrichmentWithViolations(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("GetMetricData",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.GetMetricDataInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.GetMetricDataOutput{
@@ -296,7 +288,7 @@ func TestEnrich_SuccessfulEnrichmentWithViolations(t *testing.T) {
 		},
 	}, nil).Once()
 
-	event, err := enricher.Enrich(ctx, alarmName)
+	event, err := enricher.Enrich(context.Background(), alarmName)
 	require.NoError(t, err)
 	assert.NotNil(t, event)
 	assert.NotEmpty(t, event.ViolatingMetrics)
@@ -308,7 +300,6 @@ func TestEnrich_SuccessfulEnrichmentWithViolations(t *testing.T) {
 
 func TestEnrich_SuccessfulEnrichmentWithoutViolations(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "test-alarm-no-violations"
 	metricName := "CPUUtilization"
 	namespace := "AWS/EC2"
@@ -318,7 +309,7 @@ func TestEnrich_SuccessfulEnrichmentWithoutViolations(t *testing.T) {
 	alarm.Dimensions = []types.Dimension{newDimension("InstanceId", instanceID)}
 
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.DescribeAlarmsOutput{
@@ -326,7 +317,7 @@ func TestEnrich_SuccessfulEnrichmentWithoutViolations(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("ListMetrics",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.ListMetricsInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.ListMetricsOutput{
@@ -336,7 +327,7 @@ func TestEnrich_SuccessfulEnrichmentWithoutViolations(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("GetMetricData",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.GetMetricDataInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.GetMetricDataOutput{
@@ -348,7 +339,7 @@ func TestEnrich_SuccessfulEnrichmentWithoutViolations(t *testing.T) {
 		},
 	}, nil).Once()
 
-	event, err := enricher.Enrich(ctx, alarmName)
+	event, err := enricher.Enrich(context.Background(), alarmName)
 	require.NoError(t, err)
 	assert.NotNil(t, event)
 	assert.Empty(t, event.ViolatingMetrics)
@@ -357,7 +348,6 @@ func TestEnrich_SuccessfulEnrichmentWithoutViolations(t *testing.T) {
 
 func TestEnrich_AlarmWithNoDimensions(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "test-alarm-no-dimensions"
 	metricName := "AccountLimit"
 	namespace := "AWS/Usage"
@@ -368,7 +358,7 @@ func TestEnrich_AlarmWithNoDimensions(t *testing.T) {
 	alarm.Dimensions = []types.Dimension{}
 
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.DescribeAlarmsOutput{
@@ -376,7 +366,7 @@ func TestEnrich_AlarmWithNoDimensions(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("ListMetrics",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.ListMetricsInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.ListMetricsOutput{
@@ -386,7 +376,7 @@ func TestEnrich_AlarmWithNoDimensions(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("GetMetricData",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.GetMetricDataInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.GetMetricDataOutput{
@@ -395,7 +385,7 @@ func TestEnrich_AlarmWithNoDimensions(t *testing.T) {
 		},
 	}, nil).Once()
 
-	event, err := enricher.Enrich(ctx, alarmName)
+	event, err := enricher.Enrich(context.Background(), alarmName)
 	require.NoError(t, err)
 	assert.NotNil(t, event)
 	assert.NotEmpty(t, event.ViolatingMetrics)
@@ -407,7 +397,6 @@ func TestEnrich_AlarmWithNoDimensions(t *testing.T) {
 
 func TestEnrich_MetricDataWithEmptyValues(t *testing.T) {
 	mockCW, enricher := setupEnricher(t)
-	ctx := context.Background()
 	alarmName := "test-alarm-empty-values"
 	metricName := "RequestCount"
 	namespace := "AWS/ELB"
@@ -419,7 +408,7 @@ func TestEnrich_MetricDataWithEmptyValues(t *testing.T) {
 	alarm.Dimensions = []types.Dimension{newDimension("LoadBalancerName", lbName)}
 
 	mockCW.On("DescribeAlarms",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		newDescribeAlarmInput(alarmName),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.DescribeAlarmsOutput{
@@ -427,7 +416,7 @@ func TestEnrich_MetricDataWithEmptyValues(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("ListMetrics",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.ListMetricsInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.ListMetricsOutput{
@@ -437,7 +426,7 @@ func TestEnrich_MetricDataWithEmptyValues(t *testing.T) {
 	}, nil).Once()
 
 	mockCW.On("GetMetricData",
-		ctx,
+		mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }),
 		mock.AnythingOfType("*cloudwatch.GetMetricDataInput"),
 		mock.AnythingOfType("[]func(*cloudwatch.Options)"),
 	).Return(&cloudwatch.GetMetricDataOutput{
@@ -446,7 +435,7 @@ func TestEnrich_MetricDataWithEmptyValues(t *testing.T) {
 		},
 	}, nil).Once()
 
-	event, err := enricher.Enrich(ctx, alarmName)
+	event, err := enricher.Enrich(context.Background(), alarmName)
 	require.NoError(t, err)
 	assert.NotNil(t, event)
 	assert.Empty(t, event.ViolatingMetrics)

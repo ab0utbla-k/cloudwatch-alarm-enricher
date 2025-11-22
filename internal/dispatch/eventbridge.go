@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	"github.com/aws/aws-sdk-go-v2/service/eventbridge/types"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
@@ -25,6 +26,13 @@ func NewEventBridgeSender(client EventBridgeAPI, config *config.Config) *EventBr
 }
 
 func (s *EventBridgeSender) Send(ctx context.Context, event *alarm.EnrichedEvent) error {
+	ctx, span := tracer.Start(ctx, "dispatch.send")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("dispatch.target", string(config.TargetEventBridge)),
+		attribute.String("alarm.name", aws.ToString(event.Alarm.AlarmName)),
+	)
+
 	formatter := &JSONMessageFormatter{}
 	msg, err := formatter.Format(event)
 	if err != nil {
