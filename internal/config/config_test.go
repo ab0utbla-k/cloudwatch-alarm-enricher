@@ -78,6 +78,7 @@ func TestLoad_TeamsTarget(t *testing.T) {
 }
 
 func TestLoad_MissingAWSRegion(t *testing.T) {
+	t.Setenv("AWS_REGION", "")
 	t.Setenv("ALARM_DESTINATION", "sns")
 	t.Setenv("SNS_TOPIC_ARN", "arn:aws:sns:us-east-1:123456789012:topic")
 
