@@ -56,12 +56,23 @@ Lambda execution role needs:
       "Effect": "Allow",
       "Action": ["events:PutEvents"],
       "Resource": "arn:aws:events:REGION:ACCOUNT:event-bus/BUS_NAME"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords"
+      ],
+      "Resource": "*"
     }
   ]
 }
 ```
 
-Add only the permissions needed for your chosen dispatch target.
+**Notes:**
+- Add only SNS or EventBridge permissions based on your chosen dispatch target
+- X-Ray permissions are required for distributed tracing
+- Lambda tracing should be set to `PassThrough` mode to use OTEL instrumentation
 
 ### EventBridge Rule
 
