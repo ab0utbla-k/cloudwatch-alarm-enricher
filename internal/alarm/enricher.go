@@ -189,7 +189,8 @@ func (e *MetricAlarmEnricher) findMetricsWithMostDimensions(
 				continue
 			}
 
-			// Found richer level, reset
+			// When we find metrics with more dimensions than previously seen,
+			// reset the collection since those metrics provide richer detail.
 			if dimCount > maxDimensions {
 				mostEnriched = []*types.Metric{&m}
 				maxDimensions = dimCount
