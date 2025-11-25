@@ -13,11 +13,21 @@ import (
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
 )
 
+// EventBridgeAPI defines the EventBridge operations required for sending events.
+type EventBridgeAPI interface {
+	PutEvents(
+		ctx context.Context,
+		params *eventbridge.PutEventsInput,
+		optFns ...func(*eventbridge.Options)) (*eventbridge.PutEventsOutput, error)
+}
+
+// EventBridgeSender sends enriched alarms to AWS EventBridge.
 type EventBridgeSender struct {
 	client EventBridgeAPI
 	config *config.Config
 }
 
+// NewEventBridgeSender creates a new EventBridgeSender instance.
 func NewEventBridgeSender(client EventBridgeAPI, config *config.Config) *EventBridgeSender {
 	return &EventBridgeSender{
 		client: client,
@@ -25,6 +35,7 @@ func NewEventBridgeSender(client EventBridgeAPI, config *config.Config) *EventBr
 	}
 }
 
+// Send publishes the enriched event to the configured EventBridge event bus.
 func (s *EventBridgeSender) Send(ctx context.Context, event *alarm.EnrichedEvent) error {
 	ctx, span := tracer.Start(ctx, "dispatch.send")
 	defer span.End()

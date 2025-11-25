@@ -1,3 +1,4 @@
+// Package telemetry provides OpenTelemetry tracing configuration for AWS Lambda.
 package telemetry
 
 import (
@@ -15,6 +16,8 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 )
 
+// NewTracerProvider creates an OpenTelemetry TracerProvider configured for AWS X-Ray.
+// It detects Lambda-specific resource attributes and exports traces via UDP to X-Ray.
 func NewTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 	res, err := buildResource(ctx)
 	if err != nil {

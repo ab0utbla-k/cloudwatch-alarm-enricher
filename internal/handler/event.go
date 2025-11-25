@@ -1,3 +1,4 @@
+// Package handler provides Lambda event handling for CloudWatch alarm state changes.
 package handler
 
 import (
@@ -13,12 +14,14 @@ import (
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/dispatch"
 )
 
+// EventHandler processes CloudWatch alarm state change events from EventBridge.
 type EventHandler struct {
 	enricher alarm.Enricher
 	sender   dispatch.Sender
 	logger   *slog.Logger
 }
 
+// NewEventHandler creates a new EventHandler instance.
 func NewEventHandler(enricher alarm.Enricher, sender dispatch.Sender, logger *slog.Logger) *EventHandler {
 	return &EventHandler{
 		enricher: enricher,
@@ -27,6 +30,8 @@ func NewEventHandler(enricher alarm.Enricher, sender dispatch.Sender, logger *sl
 	}
 }
 
+// HandleRequest processes a CloudWatch alarm state change event.
+// It enriches the alarm with violating metrics and dispatches a notification.
 func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatchEvent) error {
 	var eventData struct {
 		AlarmName string `json:"alarmName"`
