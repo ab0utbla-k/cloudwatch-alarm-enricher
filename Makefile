@@ -23,25 +23,54 @@ OK		= echo ${TIME} ${GREEN}[ OK ]${CNone}
 FAIL	= (echo ${TIME} ${RED}[FAIL]${CNone} && false)
 
 # ====================================================================================
-# Build Dependencies
+# Variables - Local Lambda Deployment
 
-## Binaries
+LAMBDA_FUNCTION_NAME ?= cloudwatch-alarm-enricher
+LAMBDA_BUILD_ARGS ?= CGO_ENABLED=0
+LAMBDA_BINARY ?= bootstrap
+LAMBDA_ZIP ?= lambda.zip
+
+# ====================================================================================
+# Variables - Docker/Container
+
+DOCKERFILE ?= Dockerfile
+DOCKER ?= docker
+DOCKER_BUILD_ARGS ?=
+
+# Image registry for build/push image targets
+export IMAGE_REGISTRY ?= ghcr.io
+export IMAGE_REPO     ?= ab0utbla-k/cloudwatch-alarm-enricher
+export IMAGE_NAME ?= $(IMAGE_REGISTRY)/$(IMAGE_REPO)
+export IMAGE_TAG ?= latest
+
+# ====================================================================================
+# Variables - Build Tools
+
 LOCALBIN ?= $(shell pwd)/bin
-$(LOCALBIN):
-	@mkdir -p $(LOCALBIN)
-
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 GOLANGCI_VERSION := v2.4.0
 
-.PHONY: golangci-lint
-golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary
-$(GOLANGCI_LINT): $(LOCALBIN)
-	@test -s $(LOCALBIN)/golangci-lint && $(LOCALBIN)/golangci-lint version --format short | grep -q $(GOLANGCI_VERSION) || \
-	(echo "Installing golangci-lint $(GOLANGCI_VERSION)..." && \
-	 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_VERSION))
+# ====================================================================================
+# Help
+
+.PHONY: help
+help: ## Display this help message
+	@echo "$(BLUE)Available targets:$(CNone)"
+	@echo ""
+	@echo "$(YELLOW)Development:$(CNone)"
+	@grep -E '^(test|lint|fmt|tidy):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(CNone) %s\n", $$1, $$2}'
+	@echo ""
+	@echo "$(YELLOW)Local Lambda Deployment:$(CNone)"
+	@grep -E '^lambda\.[^:]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(CNone) %s\n", $$1, $$2}'
+	@echo ""
+	@echo "$(YELLOW)Docker/Container:$(CNone)"
+	@grep -E '^docker\.[^:]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(CNone) %s\n", $$1, $$2}'
+	@echo ""
+	@echo "$(YELLOW)Tools:$(CNone)"
+	@grep -E '^(golangci-lint):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(CNone) %s\n", $$1, $$2}'
 
 # ====================================================================================
-# Go Development
+# Development Targets
 
 .PHONY: test
 test: ## Run tests
@@ -73,62 +102,50 @@ tidy: ## Tidy go modules
 	@$(OK) Modules tidied
 
 # ====================================================================================
-# Lambda Deployment
+# Local Lambda Deployment Targets
 
-LAMBDA_FUNCTION_NAME ?= cloudwatch-alarm-enricher
-BUILD_ARGS ?= CGO_ENABLED=0
-
-.PHONY: build
-build: ## Build Lambda binary
+.PHONY: lambda.build
+lambda.build: ## Build Lambda binary for local deployment
 	@$(INFO) Building Lambda binary
-	$(BUILD_ARGS) GOOS=linux GOARCH=amd64 go build -o bootstrap cmd/lambda/main.go
+	$(LAMBDA_BUILD_ARGS) GOOS=linux GOARCH=amd64 go build -o $(LAMBDA_BINARY) cmd/lambda/main.go
 	@$(OK) Built Lambda binary
 
-.PHONY: zip
-zip: build ## Create Lambda deployment package
+.PHONY: lambda.zip
+lambda.zip: lambda.build ## Create Lambda deployment package
 	@$(INFO) Creating deployment package
-	@zip -q lambda.zip bootstrap
-	@$(OK) Created lambda.zip
+	@zip -q $(LAMBDA_ZIP) $(LAMBDA_BINARY)
+	@$(OK) Created $(LAMBDA_ZIP)
 
-.PHONY: deploy
-deploy: zip ## Deploy Lambda function to AWS
+.PHONY: lambda.deploy
+lambda.deploy: lambda.zip ## Deploy Lambda function to AWS (local development)
 	@$(INFO) Deploying Lambda function
-	@aws lambda update-function-code --function-name $(LAMBDA_FUNCTION_NAME) --zip-file fileb://lambda.zip
+	@aws lambda update-function-code --function-name $(LAMBDA_FUNCTION_NAME) --zip-file fileb://$(LAMBDA_ZIP)
 	@$(OK) Deployed Lambda function
 
-.PHONY: clean
-clean: ## Remove build artifacts
-	@rm -f bootstrap lambda.zip
+.PHONY: lambda.clean
+lambda.clean: ## Remove Lambda build artifacts
+	@$(INFO) Cleaning Lambda build artifacts
+	@rm -f $(LAMBDA_BINARY) $(LAMBDA_ZIP)
 	@$(OK) Cleaned build artifacts
 
+# Convenience aliases for backwards compatibility
+.PHONY: build
+build: lambda.build
+
+.PHONY: deploy
+deploy: lambda.deploy
+
+.PHONY: clean
+clean: lambda.clean
+
 # ====================================================================================
-# Build Artifacts
-DOCKERFILE ?= Dockerfile
-DOCKER ?= docker
-DOCKER_BUILD_ARGS ?=
-
-# Image registry for build/push image targets
-export IMAGE_REGISTRY ?= ghcr.io
-export IMAGE_REPO     ?= ab0utbla-k/cloudwatch-alarm-enricher
-export IMAGE_NAME ?= $(IMAGE_REGISTRY)/$(IMAGE_REPO)
-
-.PHONY: docker.image
-docker.image:  ## Emit IMAGE_NAME:IMAGE_TAG
-	@echo $(IMAGE_NAME):$(IMAGE_TAG)
-
-.PHONY: docker.imagename
-docker.imagename:  ## Emit IMAGE_NAME
-	@echo $(IMAGE_NAME)
-
-.PHONY: docker.tag
-docker.tag:  ## Emit IMAGE_TAG
-	@echo $(IMAGE_TAG)
+# Docker/Container Targets
 
 .PHONY: docker.build
-docker.build: $(addprefix build-,$(ARCH)) ## Build the docker image
+docker.build: ## Build the docker image
 	@$(INFO) $(DOCKER) build
-	echo $(DOCKER) build -f $(DOCKERFILE) . $(DOCKER_BUILD_ARGS) -t $(IMAGE_NAME):$(IMAGE_TAG)
-	DOCKER_BUILDKIT=1 $(DOCKER) build -f $(DOCKERFILE) . $(DOCKER_BUILD_ARGS) -t $(IMAGE_NAME):$(IMAGE_TAG)
+	@echo $(DOCKER) build -f $(DOCKERFILE) . $(DOCKER_BUILD_ARGS) -t $(IMAGE_NAME):$(IMAGE_TAG)
+	@DOCKER_BUILDKIT=1 $(DOCKER) build -f $(DOCKERFILE) . $(DOCKER_BUILD_ARGS) -t $(IMAGE_NAME):$(IMAGE_TAG)
 	@$(OK) $(DOCKER) build
 
 .PHONY: docker.push
@@ -136,3 +153,28 @@ docker.push: ## Push the docker image to the registry
 	@$(INFO) $(DOCKER) push
 	@$(DOCKER) push $(IMAGE_NAME):$(IMAGE_TAG)
 	@$(OK) $(DOCKER) push
+
+.PHONY: docker.image
+docker.image: ## Display full image name with tag
+	@echo $(IMAGE_NAME):$(IMAGE_TAG)
+
+.PHONY: docker.imagename
+docker.imagename: ## Display image name without tag
+	@echo $(IMAGE_NAME)
+
+.PHONY: docker.tag
+docker.tag: ## Display image tag
+	@echo $(IMAGE_TAG)
+
+# ====================================================================================
+# Build Tools
+
+$(LOCALBIN):
+	@mkdir -p $(LOCALBIN)
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary
+$(GOLANGCI_LINT): $(LOCALBIN)
+	@test -s $(LOCALBIN)/golangci-lint && $(LOCALBIN)/golangci-lint version --format short | grep -q $(GOLANGCI_VERSION) || \
+	(echo "Installing golangci-lint $(GOLANGCI_VERSION)..." && \
+	 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_VERSION))
