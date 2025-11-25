@@ -12,11 +12,21 @@ import (
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
 )
 
+// SNSAPI defines the SNS operations required for sending notifications.
+type SNSAPI interface {
+	Publish(
+		ctx context.Context,
+		input *sns.PublishInput,
+		optFns ...func(*sns.Options)) (*sns.PublishOutput, error)
+}
+
+// SNSSender sends enriched alarms to AWS SNS topics.
 type SNSSender struct {
 	client SNSAPI
 	config *config.Config
 }
 
+// NewSNSSender creates a new SNSSender instance.
 func NewSNSSender(client SNSAPI, config *config.Config) *SNSSender {
 	return &SNSSender{
 		client: client,
@@ -24,6 +34,7 @@ func NewSNSSender(client SNSAPI, config *config.Config) *SNSSender {
 	}
 }
 
+// Send publishes the enriched event to the configured SNS topic.
 func (s *SNSSender) Send(ctx context.Context, event *alarm.EnrichedEvent) error {
 	ctx, span := tracer.Start(ctx, "dispatch.send")
 	defer span.End()

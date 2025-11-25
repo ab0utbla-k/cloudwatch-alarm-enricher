@@ -1,3 +1,4 @@
+// Package alarm provides CloudWatch alarm enrichment with detailed metric analysis.
 package alarm
 
 import (
@@ -15,10 +16,16 @@ import (
 
 var tracer = otel.Tracer("github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm")
 
+// Enricher enriches CloudWatch alarm events with detailed metric analysis.
+// It identifies specific resources violating alarm thresholds by querying CloudWatch metrics.
 type Enricher interface {
+	// Enrich retrieves alarm details and identifies metrics currently violating the threshold.
+	// Returns an EnrichedEvent containing the alarm state and violating metrics.
 	Enrich(ctx context.Context, alarmName string) (*EnrichedEvent, error)
 }
 
+// EnrichedEvent represents a CloudWatch alarm enriched with violating metric details.
+// It includes the original alarm state plus specific resources currently violating thresholds.
 type EnrichedEvent struct {
 	AccountID        string             `json:"accountID"`
 	Alarm            *types.MetricAlarm `json:"alarm"`
@@ -26,12 +33,14 @@ type EnrichedEvent struct {
 	Timestamp        time.Time          `json:"timestamp"`
 }
 
+// ViolatingMetric represents a single metric that is currently violating the alarm threshold.
 type ViolatingMetric struct {
 	Value      float64           `json:"value"`
 	Dimensions map[string]string `json:"dimensions"`
 	Timestamp  time.Time         `json:"timestamp"`
 }
 
+// CloudWatchAPI defines the CloudWatch operations required for alarm enrichment.
 type CloudWatchAPI interface {
 	DescribeAlarms(
 		ctx context.Context,
@@ -49,11 +58,13 @@ type CloudWatchAPI interface {
 		optFns ...func(*cloudwatch.Options)) (*cloudwatch.ListMetricsOutput, error)
 }
 
+// MetricAlarmEnricher implements the Enricher interface for CloudWatch metric alarms.
 type MetricAlarmEnricher struct {
 	cw     CloudWatchAPI
 	logger *slog.Logger
 }
 
+// NewMetricAlarmEnricher creates a new MetricAlarmEnricher instance.
 func NewMetricAlarmEnricher(
 	cw CloudWatchAPI,
 	logger *slog.Logger,
@@ -64,6 +75,9 @@ func NewMetricAlarmEnricher(
 	}
 }
 
+// Enrich retrieves the alarm details and identifies metrics currently violating the threshold.
+// It queries CloudWatch to find the most detailed metrics (those with the most dimensions)
+// and determines which specific resources are in violation.
 func (e *MetricAlarmEnricher) Enrich(ctx context.Context, alarmName string) (*EnrichedEvent, error) {
 	ctx, span := tracer.Start(ctx, "alarm.enrich")
 	defer span.End()
@@ -131,7 +145,7 @@ func (e *MetricAlarmEnricher) findViolatingMetrics(ctx context.Context, alarm *t
 	metricNamespace := aws.ToString(alarm.Namespace)
 	metricName := aws.ToString(alarm.MetricName)
 
-	metrics, err := e.findEnrichedMetrics(ctx, metricNamespace, metricName, dimensionFilters)
+	metrics, err := e.findMetricsWithMostDimensions(ctx, metricNamespace, metricName, dimensionFilters)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +162,7 @@ func (e *MetricAlarmEnricher) findViolatingMetrics(ctx context.Context, alarm *t
 	return violating, nil
 }
 
-func (e *MetricAlarmEnricher) findEnrichedMetrics(
+func (e *MetricAlarmEnricher) findMetricsWithMostDimensions(
 	ctx context.Context,
 	namespace, metricName string,
 	dimensions []types.DimensionFilter,

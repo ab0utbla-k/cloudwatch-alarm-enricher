@@ -1,3 +1,4 @@
+// Package config handles application configuration loading from environment variables.
 package config
 
 import (
@@ -6,15 +7,21 @@ import (
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/utils/env"
 )
 
+// DispatchTarget represents the notification destination for enriched alarms.
 type DispatchTarget string
 
 const (
-	TargetSNS         DispatchTarget = "sns"
+	// TargetSNS sends notifications to AWS SNS.
+	TargetSNS DispatchTarget = "sns"
+	// TargetEventBridge sends events to AWS EventBridge.
 	TargetEventBridge DispatchTarget = "eventbridge"
-	TargetSlack       DispatchTarget = "slack"
-	TargetTeams       DispatchTarget = "teams"
+	// TargetSlack sends notifications to Slack (not yet implemented).
+	TargetSlack DispatchTarget = "slack"
+	// TargetTeams sends notifications to Microsoft Teams (not yet implemented).
+	TargetTeams DispatchTarget = "teams"
 )
 
+// Config holds application configuration loaded from environment variables.
 type Config struct {
 	AWSRegion      string
 	DispatchTarget DispatchTarget
@@ -25,6 +32,8 @@ type Config struct {
 	TeamsWebhookURL string
 }
 
+// Load reads and validates configuration from environment variables.
+// Returns an error if required variables are missing or invalid.
 func Load() (*Config, error) {
 	cfg := &Config{}
 
