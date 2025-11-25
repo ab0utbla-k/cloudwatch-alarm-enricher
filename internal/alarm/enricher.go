@@ -27,10 +27,10 @@ type Enricher interface {
 // EnrichedEvent represents a CloudWatch alarm enriched with violating metric details.
 // It includes the original alarm state plus specific resources currently violating thresholds.
 type EnrichedEvent struct {
-	AccountID        string             `json:"accountID"`
-	Alarm            *types.MetricAlarm `json:"alarm"`
 	ViolatingMetrics []ViolatingMetric  `json:"violatingMetrics"`
 	Timestamp        time.Time          `json:"timestamp"`
+	AccountID        string             `json:"accountID"`
+	Alarm            *types.MetricAlarm `json:"alarm"`
 }
 
 // ViolatingMetric represents a single metric that is currently violating the alarm threshold.
