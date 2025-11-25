@@ -48,7 +48,7 @@ export IMAGE_TAG ?= latest
 
 LOCALBIN ?= $(shell pwd)/bin
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
-GOLANGCI_VERSION := v2.4.0
+GOLANGCI_VERSION := v2.6.2
 
 # ====================================================================================
 # Help
