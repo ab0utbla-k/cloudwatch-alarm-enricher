@@ -26,8 +26,10 @@ type Config struct {
 	AWSRegion      string
 	DispatchTarget DispatchTarget
 
-	EventBusARN     string
-	SNSTopicARN     string
+	EventBusARN string
+	SNSTopicARN string
+
+	// Planned but not yet implemented
 	SlackWebhookURL string
 	TeamsWebhookURL string
 }
