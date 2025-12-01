@@ -59,8 +59,15 @@ func (s *EventBridgeSender) Send(ctx context.Context, event *alarm.EnrichedEvent
 		}},
 	}
 
-	if _, err = s.client.PutEvents(ctx, params); err != nil {
-		return fmt.Errorf("cannot put events to %q: %w", s.config.EventBusARN, err)
+	out, err := s.client.PutEvents(ctx, params)
+	if err != nil {
+		return fmt.Errorf("cannot put event to %q: %w", s.config.EventBusARN, err)
+	}
+
+	if out.FailedEntryCount > 0 {
+		entry := out.Entries[0]
+		return fmt.Errorf("cannot put event to %q: %s - %s",
+			s.config.EventBusARN, aws.ToString(entry.ErrorCode), aws.ToString(entry.ErrorMessage))
 	}
 
 	return nil

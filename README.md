@@ -9,7 +9,7 @@ When a CloudWatch alarm triggers, this Lambda queries CloudWatch metrics to iden
 - **Metric Enrichment**: Identifies specific resources violating alarm thresholds
 - **Multiple Dispatch Targets**: Send to SNS or EventBridge
 - **Universal Support**: Works with any CloudWatch alarm
-- **Container-based**: Deployed as Lambda container image
+- **Flexible Deployment**: Deploy as zip package or container image
 
 ## How It Works
 
@@ -22,13 +22,13 @@ When a CloudWatch alarm triggers, this Lambda queries CloudWatch metrics to iden
 
 ### Environment Variables
 
-**Required:**
-- `AWS_REGION`: AWS region (e.g., `us-east-1`)
-- `ALARM_DESTINATION`: Dispatch target - `sns` or `eventbridge` (default: `sns`)
+| Variable            | Required         | Default | Description                             |
+|---------------------|------------------|---------|-----------------------------------------|
+| `ALARM_DESTINATION` | No               | `sns`   | Dispatch target: `sns` or `eventbridge` |
+| `SNS_TOPIC_ARN`     | If `sns`         | -       | SNS topic ARN                           |
+| `EVENT_BUS_ARN`     | If `eventbridge` | -       | EventBridge bus name or ARN             |
 
-**Target-specific:**
-- `SNS_TOPIC_ARN`: SNS topic ARN (required if `ALARM_DESTINATION=sns`)
-- `EVENT_BUS_ARN`: EventBridge bus name or ARN (required if `ALARM_DESTINATION=eventbridge`)
+> **Note:** `AWS_REGION` is automatically provided by the Lambda runtime.
 
 ### IAM Permissions
 
@@ -92,51 +92,47 @@ Trigger Lambda on CloudWatch alarm state changes:
 
 ## Deployment
 
-### Using Makefile
+### Zip Package
 
 ```bash
-# Build Lambda binary
-make build
-
-# Create deployment package
-make zip
+# Build and create deployment package
+make lambda.build
+make lambda.zip
 
 # Deploy to AWS Lambda
-make deploy
+make lambda.deploy
 
 # Or specify custom function name
-LAMBDA_FUNCTION_NAME=my-alarm-enricher make deploy
+LAMBDA_FUNCTION_NAME=my-alarm-enricher make lambda.deploy
 
 # Clean build artifacts
-make clean
+make lambda.clean
+```
+
+### Container Image
+
+```bash
+# Build container image
+make docker.build
+
+# Push to registry
+make docker.push
+
+# Customize image name/tag
+IMAGE_REGISTRY=123456789.dkr.ecr.us-east-1.amazonaws.com \
+IMAGE_REPO=cloudwatch-alarm-enricher \
+IMAGE_TAG=v1.0.0 \
+make docker.build docker.push
 ```
 
 ## Development
 
-### Running Tests
-
 ```bash
-# Run all tests
-go test ./...
-
-# Run tests with coverage
-go test -cover ./...
-
-# Using Makefile
-make test
-```
-
-### Code Quality
-
-```bash
-# Lint code
-make lint
-
-# Format and fix code
-make fmt
-
-# Tidy modules
-make tidy
+make test    # Run tests
+make lint    # Run linter
+make fmt     # Format code and fix lint issues
+make tidy    # Tidy go modules
+make help    # Show all available targets
 ```
 
 ## Example Output

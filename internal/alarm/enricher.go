@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -97,7 +99,7 @@ func (e *MetricAlarmEnricher) Enrich(ctx context.Context, alarmName string) (*En
 
 	alarm := &output.MetricAlarms[0]
 
-	processed := &EnrichedEvent{
+	event := &EnrichedEvent{
 		Alarm:            alarm,
 		Timestamp:        time.Now(),
 		ViolatingMetrics: []ViolatingMetric{},
@@ -110,7 +112,7 @@ func (e *MetricAlarmEnricher) Enrich(ctx context.Context, alarmName string) (*En
 			slog.String("alarmName", alarmName),
 			slog.String("state", string(alarm.StateValue)),
 		)
-		return processed, nil
+		return event, nil
 	}
 
 	violatingMetrics, err := e.findViolatingMetrics(ctx, alarm)
@@ -128,9 +130,9 @@ func (e *MetricAlarmEnricher) Enrich(ctx context.Context, alarmName string) (*En
 		)
 	}
 
-	processed.ViolatingMetrics = violatingMetrics
+	event.ViolatingMetrics = violatingMetrics
 
-	return processed, nil
+	return event, nil
 }
 
 func (e *MetricAlarmEnricher) findViolatingMetrics(ctx context.Context, alarm *types.MetricAlarm) ([]ViolatingMetric, error) {
@@ -154,12 +156,7 @@ func (e *MetricAlarmEnricher) findViolatingMetrics(ctx context.Context, alarm *t
 		return []ViolatingMetric{}, nil
 	}
 
-	violating, err := e.analyzeMetricsForViolations(ctx, alarm, metrics)
-	if err != nil {
-		return nil, err
-	}
-
-	return violating, nil
+	return e.analyzeMetricsForViolations(ctx, alarm, metrics)
 }
 
 func (e *MetricAlarmEnricher) findMetricsWithMostDimensions(
@@ -173,7 +170,7 @@ func (e *MetricAlarmEnricher) findMetricsWithMostDimensions(
 		Dimensions: dimensions,
 	})
 
-	var mostEnriched []*types.Metric
+	var candidates []*types.Metric
 	maxDimensions := len(dimensions)
 
 	for paginator.HasMorePages() {
@@ -192,15 +189,15 @@ func (e *MetricAlarmEnricher) findMetricsWithMostDimensions(
 			// When we find metrics with more dimensions than previously seen,
 			// reset the collection since those metrics provide richer detail.
 			if dimCount > maxDimensions {
-				mostEnriched = []*types.Metric{&m}
+				candidates = []*types.Metric{&m}
 				maxDimensions = dimCount
 			} else {
-				mostEnriched = append(mostEnriched, &m)
+				candidates = append(candidates, &m)
 			}
 		}
 	}
 
-	return mostEnriched, nil
+	return candidates, nil
 }
 
 func (e *MetricAlarmEnricher) analyzeMetricsForViolations(
@@ -213,6 +210,11 @@ func (e *MetricAlarmEnricher) analyzeMetricsForViolations(
 	evaluationWindow := period * time.Duration(*alarm.EvaluationPeriods)
 	startTime := endTime.Add(-evaluationWindow)
 
+	stat := string(alarm.Statistic)
+	if stat == "" {
+		stat = aws.ToString(alarm.ExtendedStatistic)
+	}
+
 	metricQueries := make([]types.MetricDataQuery, len(metrics))
 	for i, metric := range metrics {
 		metricQueries[i] = types.MetricDataQuery{
@@ -220,7 +222,7 @@ func (e *MetricAlarmEnricher) analyzeMetricsForViolations(
 			MetricStat: &types.MetricStat{
 				Metric: metric,
 				Period: alarm.Period,
-				Stat:   aws.String(string(alarm.Statistic)),
+				Stat:   aws.String(stat),
 			},
 			ReturnData: aws.Bool(true),
 		}
@@ -253,28 +255,70 @@ func (e *MetricAlarmEnricher) processBatch(
 	alarm *types.MetricAlarm,
 	startTime, endTime time.Time,
 ) ([]ViolatingMetric, error) {
-	output, err := e.cw.GetMetricData(ctx, &cloudwatch.GetMetricDataInput{
+	paginator := cloudwatch.NewGetMetricDataPaginator(e.cw, &cloudwatch.GetMetricDataInput{
 		MetricDataQueries: queries,
 		StartTime:         aws.Time(startTime),
 		EndTime:           aws.Time(endTime),
 	})
-	if err != nil {
-		return nil, fmt.Errorf("cannot get metric data: %w", err)
+
+	// Accumulate results across pages - same metric ID may appear multiple times
+	type metricData struct {
+		values     []float64
+		timestamps []time.Time
+		complete   bool
+	}
+
+	results := make(map[int]*metricData)
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get metrics on next page: %w", err)
+		}
+
+		for _, result := range page.MetricDataResults {
+			idx, err := strconv.Atoi(strings.TrimPrefix(aws.ToString(result.Id), "m"))
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse metric id %q: %w", aws.ToString(result.Id), err)
+			}
+
+			if results[idx] == nil {
+				results[idx] = &metricData{}
+			}
+
+			results[idx].values = append(results[idx].values, result.Values...)
+			results[idx].timestamps = append(results[idx].timestamps, result.Timestamps...)
+
+			if result.StatusCode == types.StatusCodeComplete {
+				results[idx].complete = true
+			}
+		}
 	}
 
 	var violating []ViolatingMetric
-
-	for i, result := range output.MetricDataResults {
-		if len(result.Values) == 0 {
+	for idx, data := range results {
+		if !data.complete {
+			e.logger.WarnContext(ctx, "metric data incomplete after pagination",
+				slog.Int("metricIndex", idx))
 			continue
 		}
 
-		latestValue := result.Values[len(result.Values)-1]
-		timestamp := result.Timestamps[len(result.Timestamps)-1]
+		if len(data.values) == 0 {
+			continue
+		}
+
+		var latestIdx int
+		for i, ts := range data.timestamps {
+			if ts.After(data.timestamps[latestIdx]) {
+				latestIdx = i
+			}
+		}
+
+		latestValue := data.values[latestIdx]
+		timestamp := data.timestamps[latestIdx]
 
 		if e.isViolatingThreshold(latestValue, alarm) {
-			metric := metrics[i]
-
+			metric := metrics[idx]
 			vm := e.createViolatingMetric(*metric, latestValue, timestamp)
 			violating = append(violating, vm)
 		}

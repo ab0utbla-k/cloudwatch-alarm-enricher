@@ -79,5 +79,11 @@ func (h *EventHandler) HandleRequest(ctx context.Context, event events.CloudWatc
 		return err
 	}
 
+	h.logger.InfoContext(
+		ctx,
+		"notification sent",
+		slog.String("alarmName", aws.ToString(enriched.Alarm.AlarmName)),
+	)
+
 	return nil
 }

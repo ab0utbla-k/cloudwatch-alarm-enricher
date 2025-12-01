@@ -66,6 +66,7 @@ func newMetricDataResult(id string, values []float64, timestamps []time.Time) ty
 		Id:         aws.String(id),
 		Values:     values,
 		Timestamps: timestamps,
+		StatusCode: types.StatusCodeComplete,
 	}
 }
 

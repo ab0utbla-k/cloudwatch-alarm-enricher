@@ -20,7 +20,6 @@ import (
 )
 
 func main() {
-	startTime := time.Now()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	logger.Info("starting cloudwatch alarm enricher")
@@ -70,7 +69,6 @@ func main() {
 		"started cloudwatch alarm enricher",
 		slog.String("target", string(cfg.DispatchTarget)),
 		slog.String("region", cfg.AWSRegion),
-		slog.Float64("initDurationSec", time.Since(startTime).Seconds()),
 	)
 
 	h := handler.NewEventHandler(enricher, sender, logger)
