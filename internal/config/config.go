@@ -4,7 +4,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/utils/env"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/env"
 )
 
 // DispatchTarget represents the notification destination for enriched alarms.
