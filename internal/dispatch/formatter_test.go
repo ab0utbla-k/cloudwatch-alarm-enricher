@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/events"
 )
 
 func TestTextMessageFormatter_NoViolations(t *testing.T) {
 	formatter := &TextMessageFormatter{}
 
-	event := &alarm.EnrichedEvent{
+	event := &events.EnrichedEvent{
 		AccountID: "123456789012",
 		Alarm: &types.MetricAlarm{
 			AlarmName:   aws.String("TestAlarm"),
@@ -24,7 +24,7 @@ func TestTextMessageFormatter_NoViolations(t *testing.T) {
 			StateReason: aws.String("Threshold breached"),
 			Threshold:   aws.Float64(100.0),
 		},
-		ViolatingMetrics: []alarm.ViolatingMetric{},
+		ViolatingMetrics: []events.ViolatingMetric{},
 		Timestamp:        time.Date(2025, 10, 2, 12, 0, 0, 0, time.UTC),
 	}
 
@@ -40,7 +40,7 @@ func TestTextMessageFormatter_NoViolations(t *testing.T) {
 func TestTextMessageFormatter_WithViolations(t *testing.T) {
 	formatter := &TextMessageFormatter{}
 
-	event := &alarm.EnrichedEvent{
+	event := &events.EnrichedEvent{
 		Alarm: &types.MetricAlarm{
 			AlarmName:          aws.String("HighErrorRate"),
 			StateValue:         types.StateValueAlarm,
@@ -48,7 +48,7 @@ func TestTextMessageFormatter_WithViolations(t *testing.T) {
 			Threshold:          aws.Float64(10.0),
 			ComparisonOperator: types.ComparisonOperatorGreaterThanThreshold,
 		},
-		ViolatingMetrics: []alarm.ViolatingMetric{
+		ViolatingMetrics: []events.ViolatingMetric{
 			{
 				Value: 15.5,
 				Dimensions: map[string]string{
@@ -82,7 +82,7 @@ func TestTextMessageFormatter_WithViolations(t *testing.T) {
 func TestTextMessageFormatter_DimensionsSorted(t *testing.T) {
 	formatter := &TextMessageFormatter{}
 
-	event := &alarm.EnrichedEvent{
+	event := &events.EnrichedEvent{
 		Alarm: &types.MetricAlarm{
 			AlarmName:          aws.String("TestAlarm"),
 			StateValue:         types.StateValueAlarm,
@@ -90,7 +90,7 @@ func TestTextMessageFormatter_DimensionsSorted(t *testing.T) {
 			Threshold:          aws.Float64(5.0),
 			ComparisonOperator: types.ComparisonOperatorGreaterThanOrEqualToThreshold,
 		},
-		ViolatingMetrics: []alarm.ViolatingMetric{
+		ViolatingMetrics: []events.ViolatingMetric{
 			{
 				Value: 10.0,
 				Dimensions: map[string]string{
@@ -112,7 +112,7 @@ func TestTextMessageFormatter_DimensionsSorted(t *testing.T) {
 func TestJSONMessageFormatter_NoViolations(t *testing.T) {
 	formatter := &JSONMessageFormatter{}
 
-	event := &alarm.EnrichedEvent{
+	event := &events.EnrichedEvent{
 		AccountID: "123456789012",
 		Alarm: &types.MetricAlarm{
 			AlarmName:   aws.String("TestAlarm"),
@@ -120,7 +120,7 @@ func TestJSONMessageFormatter_NoViolations(t *testing.T) {
 			StateReason: aws.String("Threshold breached"),
 			Threshold:   aws.Float64(100.0),
 		},
-		ViolatingMetrics: []alarm.ViolatingMetric{},
+		ViolatingMetrics: []events.ViolatingMetric{},
 		Timestamp:        time.Date(2025, 10, 2, 12, 0, 0, 0, time.UTC),
 	}
 
@@ -128,7 +128,7 @@ func TestJSONMessageFormatter_NoViolations(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, message)
 
-	var result alarm.EnrichedEvent
+	var result events.EnrichedEvent
 	err = json.Unmarshal([]byte(message), &result)
 	require.NoError(t, err)
 
@@ -142,7 +142,7 @@ func TestJSONMessageFormatter_WithViolations(t *testing.T) {
 	formatter := &JSONMessageFormatter{}
 
 	timestamp := time.Date(2025, 10, 2, 12, 0, 0, 0, time.UTC)
-	event := &alarm.EnrichedEvent{
+	event := &events.EnrichedEvent{
 		Alarm: &types.MetricAlarm{
 			AlarmName:          aws.String("HighErrorRate"),
 			StateValue:         types.StateValueAlarm,
@@ -150,7 +150,7 @@ func TestJSONMessageFormatter_WithViolations(t *testing.T) {
 			Threshold:          aws.Float64(10.0),
 			ComparisonOperator: types.ComparisonOperatorGreaterThanThreshold,
 		},
-		ViolatingMetrics: []alarm.ViolatingMetric{
+		ViolatingMetrics: []events.ViolatingMetric{
 			{
 				Value: 15.5,
 				Dimensions: map[string]string{
@@ -174,7 +174,7 @@ func TestJSONMessageFormatter_WithViolations(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, message)
 
-	var result alarm.EnrichedEvent
+	var result events.EnrichedEvent
 	err = json.Unmarshal([]byte(message), &result)
 	require.NoError(t, err)
 

@@ -10,20 +10,20 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/events"
 )
 
 // MessageFormatter formats enriched events into message strings.
 type MessageFormatter interface {
 	// Format converts an enriched event into a formatted message string.
-	Format(event *alarm.EnrichedEvent) (string, error)
+	Format(event *events.EnrichedEvent) (string, error)
 }
 
 // TextMessageFormatter formats enriched events as human-readable text.
 type TextMessageFormatter struct{}
 
 // Format creates a human-readable text message from an enriched event.
-func (f *TextMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error) {
+func (f *TextMessageFormatter) Format(event *events.EnrichedEvent) (string, error) {
 	a := event.Alarm
 	var msg strings.Builder
 
@@ -97,7 +97,7 @@ func getComparisonSymbol(op types.ComparisonOperator) (string, error) {
 type JSONMessageFormatter struct{}
 
 // Format creates a JSON representation of an enriched event.
-func (f *JSONMessageFormatter) Format(event *alarm.EnrichedEvent) (string, error) {
+func (f *JSONMessageFormatter) Format(event *events.EnrichedEvent) (string, error) {
 	b, err := json.Marshal(event)
 	if err != nil {
 		return "", err

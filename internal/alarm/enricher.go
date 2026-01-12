@@ -14,6 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/events"
 )
 
 var tracer = otel.Tracer("github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm")
@@ -23,23 +25,7 @@ var tracer = otel.Tracer("github.com/ab0utbla-k/cloudwatch-alarm-enricher/intern
 type Enricher interface {
 	// Enrich retrieves alarm details and identifies metrics currently violating the threshold.
 	// Returns an EnrichedEvent containing the alarm state and violating metrics.
-	Enrich(ctx context.Context, alarmName string) (*EnrichedEvent, error)
-}
-
-// EnrichedEvent represents a CloudWatch alarm enriched with violating metric details.
-// It includes the original alarm state plus specific resources currently violating thresholds.
-type EnrichedEvent struct {
-	ViolatingMetrics []ViolatingMetric  `json:"violatingMetrics"`
-	Timestamp        time.Time          `json:"timestamp"`
-	AccountID        string             `json:"accountID"`
-	Alarm            *types.MetricAlarm `json:"alarm"`
-}
-
-// ViolatingMetric represents a single metric that is currently violating the alarm threshold.
-type ViolatingMetric struct {
-	Value      float64           `json:"value"`
-	Dimensions map[string]string `json:"dimensions"`
-	Timestamp  time.Time         `json:"timestamp"`
+	Enrich(ctx context.Context, alarmName string) (*events.EnrichedEvent, error)
 }
 
 // CloudWatchAPI defines the CloudWatch operations required for alarm enrichment.
@@ -80,7 +66,7 @@ func NewMetricAlarmEnricher(
 // Enrich retrieves the alarm details and identifies metrics currently violating the threshold.
 // It queries CloudWatch to find the most detailed metrics (those with the most dimensions)
 // and determines which specific resources are in violation.
-func (e *MetricAlarmEnricher) Enrich(ctx context.Context, alarmName string) (*EnrichedEvent, error) {
+func (e *MetricAlarmEnricher) Enrich(ctx context.Context, alarmName string) (*events.EnrichedEvent, error) {
 	ctx, span := tracer.Start(ctx, "alarm.enrich")
 	defer span.End()
 	span.SetAttributes(attribute.String("alarm.name", alarmName))
@@ -99,10 +85,10 @@ func (e *MetricAlarmEnricher) Enrich(ctx context.Context, alarmName string) (*En
 
 	alarm := &output.MetricAlarms[0]
 
-	event := &EnrichedEvent{
+	event := &events.EnrichedEvent{
 		Alarm:            alarm,
 		Timestamp:        time.Now(),
-		ViolatingMetrics: []ViolatingMetric{},
+		ViolatingMetrics: []events.ViolatingMetric{},
 	}
 
 	if alarm.StateValue != types.StateValueAlarm {
@@ -135,7 +121,7 @@ func (e *MetricAlarmEnricher) Enrich(ctx context.Context, alarmName string) (*En
 	return event, nil
 }
 
-func (e *MetricAlarmEnricher) findViolatingMetrics(ctx context.Context, alarm *types.MetricAlarm) ([]ViolatingMetric, error) {
+func (e *MetricAlarmEnricher) findViolatingMetrics(ctx context.Context, alarm *types.MetricAlarm) ([]events.ViolatingMetric, error) {
 	dimensionFilters := make([]types.DimensionFilter, 0, len(alarm.Dimensions))
 	for _, d := range alarm.Dimensions {
 		dimensionFilters = append(dimensionFilters, types.DimensionFilter{
@@ -153,7 +139,7 @@ func (e *MetricAlarmEnricher) findViolatingMetrics(ctx context.Context, alarm *t
 	}
 
 	if len(metrics) == 0 {
-		return []ViolatingMetric{}, nil
+		return []events.ViolatingMetric{}, nil
 	}
 
 	return e.analyzeMetricsForViolations(ctx, alarm, metrics)
@@ -204,7 +190,7 @@ func (e *MetricAlarmEnricher) analyzeMetricsForViolations(
 	ctx context.Context,
 	alarm *types.MetricAlarm,
 	metrics []*types.Metric,
-) ([]ViolatingMetric, error) {
+) ([]events.ViolatingMetric, error) {
 	period := time.Duration(*alarm.Period) * time.Second
 	endTime := alignToPeriodBoundary(time.Now(), period)
 	evaluationWindow := period * time.Duration(*alarm.EvaluationPeriods)
@@ -228,7 +214,7 @@ func (e *MetricAlarmEnricher) analyzeMetricsForViolations(
 		}
 	}
 
-	var violating []ViolatingMetric
+	var violating []events.ViolatingMetric
 	const batchSize = 500
 
 	for i := 0; i < len(metricQueries); i += batchSize {
@@ -254,7 +240,7 @@ func (e *MetricAlarmEnricher) processBatch(
 	metrics []*types.Metric,
 	alarm *types.MetricAlarm,
 	startTime, endTime time.Time,
-) ([]ViolatingMetric, error) {
+) ([]events.ViolatingMetric, error) {
 	paginator := cloudwatch.NewGetMetricDataPaginator(e.cw, &cloudwatch.GetMetricDataInput{
 		MetricDataQueries: queries,
 		StartTime:         aws.Time(startTime),
@@ -295,7 +281,7 @@ func (e *MetricAlarmEnricher) processBatch(
 		}
 	}
 
-	var violating []ViolatingMetric
+	var violating []events.ViolatingMetric
 	for idx, data := range results {
 		if !data.complete {
 			e.logger.WarnContext(ctx, "metric data incomplete after pagination",
@@ -345,13 +331,13 @@ func (e *MetricAlarmEnricher) isViolatingThreshold(value float64, alarm *types.M
 	}
 }
 
-func (e *MetricAlarmEnricher) createViolatingMetric(metric types.Metric, value float64, timestamp time.Time) ViolatingMetric {
+func (e *MetricAlarmEnricher) createViolatingMetric(metric types.Metric, value float64, timestamp time.Time) events.ViolatingMetric {
 	dimensions := make(map[string]string)
 	for _, dim := range metric.Dimensions {
 		dimensions[aws.ToString(dim.Name)] = aws.ToString(dim.Value)
 	}
 
-	return ViolatingMetric{
+	return events.ViolatingMetric{
 		Value:      value,
 		Dimensions: dimensions,
 		Timestamp:  timestamp,
