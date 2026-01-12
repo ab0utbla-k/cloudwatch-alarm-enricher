@@ -8,8 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"go.opentelemetry.io/otel/attribute"
 
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/events"
 )
 
 // SNSAPI defines the SNS operations required for sending notifications.
@@ -35,7 +35,7 @@ func NewSNSSender(client SNSAPI, config *config.Config) *SNSSender {
 }
 
 // Send publishes the enriched event to the configured SNS topic.
-func (s *SNSSender) Send(ctx context.Context, event *alarm.EnrichedEvent) error {
+func (s *SNSSender) Send(ctx context.Context, event *events.EnrichedEvent) error {
 	ctx, span := tracer.Start(ctx, "dispatch.send")
 	defer span.End()
 	span.SetAttributes(

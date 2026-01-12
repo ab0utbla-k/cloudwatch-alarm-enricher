@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"go.opentelemetry.io/otel"
 
-	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/alarm"
 	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/config"
+	"github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/events"
 )
 
 var tracer = otel.Tracer("github.com/ab0utbla-k/cloudwatch-alarm-enricher/internal/dispatch")
@@ -19,7 +19,7 @@ var tracer = otel.Tracer("github.com/ab0utbla-k/cloudwatch-alarm-enricher/intern
 // Sender sends enriched alarm events to a notification target.
 type Sender interface {
 	// Send dispatches an enriched event to the configured target.
-	Send(ctx context.Context, event *alarm.EnrichedEvent) error
+	Send(ctx context.Context, event *events.EnrichedEvent) error
 }
 
 // NewSender creates a Sender implementation based on the configured dispatch target.
